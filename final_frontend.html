@@ -86,6 +86,7 @@ let pHitFlash=0;
 let animTime=0,gameMode='title';
 let selDiff='normal';
 let bestRun={rooms:0,level:1};
+let savedSID=null;
 let settings={music:false,sfx:true,reducedMotion:false};
 let showSettings=false;
 let showHelp=false;
@@ -912,7 +913,7 @@ async function api(action,params={}){
   try{
     const res=await fetch('/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const data=await res.json();
-    if(data.sid)SID=data.sid;
+    if(data.sid){SID=data.sid;try{localStorage.setItem('cq_sid',SID);}catch(e){}}else if(action==='start'){try{localStorage.removeItem('cq_sid');}catch(e){}savedSID=null;}
     if(data.state){onStateChange(state,data.state);state=data.state;if(state.rooms_cleared!=null)saveBest(state.rooms_cleared,state.level);render()}
     else if(data.error){console.error('API error:',data.error)}
   }catch(e){console.error('API error:',e);if(ui)ui.innerHTML+='<div class="msg msg-miss">Connection error — is the server running?</div>'}
@@ -990,6 +991,7 @@ function render(){
 <div class="diff-btn ${selDiff==='hard'?'sel':''}" onclick="selDiff='hard';render()">Legend<br>13-15</div>
 </div>
 <button class="btn btn-begin" onclick="api('start',{name:document.getElementById('name').value||'Hero',difficulty:selDiff})">⚔️ Begin Adventure</button>
+${savedSID?'<div style="margin-top:6px"><button class="btn btn-success clickable" style="font-size:0.85em;width:100%" onclick="resumeGame()">▶️ Resume Saved Run</button></div>':''}
 <div style="margin-top:6px;display:flex;gap:5px"><button class="btn btn-secondary clickable" style="font-size:0.78em;flex:1" onclick="toggleMusic()">${musicOn?'🔊 Music: On':'🔇 Music: Off'}</button><button class="btn btn-secondary clickable" style="font-size:0.78em;flex:1" onclick="showSettings=true;render()">⚙️ Settings</button></div>
 <div style="margin-top:6px"><button class="btn btn-info clickable" style="font-size:0.78em;width:100%" onclick="showHelp=true;render()">❓ How to Play</button></div>
 <div style="text-align:center;font-size:0.72em;color:#ffd54f;margin-top:4px">🏆 Best Run: Room ${bestRun.rooms} (Lv ${bestRun.level})</div>
@@ -1022,7 +1024,7 @@ function render(){
   }
   if(state.mode==='explore'||state.mode==='rest'||state.mode==='treasure'){
     if(state.story_stage>=5){
-      panel+=`<div style="text-align:center;padding:10px"><div style="color:#ffd54f;font-size:1.15em;font-weight:bold">CHAMPION!</div><p style="font-size:0.78em;color:#999;margin:4px">Battles:${state.battles_won} Puzzles:${state.puzzles_solved} Math:${state.math_solved}</p><p style="font-size:0.78em;color:#999">Best Streak:${state.best_streak}</p><button class="btn btn-info clickable" onclick="shareVictory()">📤 Share Victory</button> <button class="btn btn-primary clickable" onclick="SID=null;state=null;render()">Play Again</button></div>`;
+      panel+=`<div style="text-align:center;padding:10px"><div style="color:#ffd54f;font-size:1.15em;font-weight:bold">CHAMPION!</div><p style="font-size:0.78em;color:#999;margin:4px">Battles:${state.battles_won} Puzzles:${state.puzzles_solved} Math:${state.math_solved}</p><p style="font-size:0.78em;color:#999">Best Streak:${state.best_streak}</p><button class="btn btn-info clickable" onclick="shareVictory()">📤 Share Victory</button> <button class="btn btn-primary clickable" onclick="clearSave();SID=null;state=null;render()">Play Again</button></div>`;
     }else{
       panel+=`<button class="btn btn-primary clickable" onclick="api('explore')">Explore Next Room</button>`;
       panel+=`<button class="btn btn-info clickable" onclick="showMap=!showMap;render()">🗺️ Map</button>`;
@@ -1052,7 +1054,7 @@ panel+=`<button class="btn btn-primary clickable" onclick="doAnswer()">Submit</b
     panel+=`<div class="shop-item clickable" onclick="doShop('4')" style="background:rgba(80,80,80,0.2)"><div class="nm">Leave</div><div class="pr">free</div></div>`;
     panel+=`</div>`;
   }else if(state.mode==='gameover'){
-    panel+=`<div style="text-align:center;padding:12px"><div style="font-size:1.3em;color:#ff5252;font-weight:bold">GAME OVER</div><p style="font-size:0.78em;color:#999;margin:3px">${state.name} fell in the Crystal Caverns...</p><p style="font-size:0.78em;color:#999">Level ${state.level} | Battles:${state.battles_won} | Puzzles:${state.puzzles_solved}</p><p style="font-size:0.78em;color:#999">Best Streak:${state.best_streak}</p><button class="btn btn-primary clickable" onclick="SID=null;state=null;render()">Play Again</button></div>`;
+    panel+=`<div style="text-align:center;padding:12px"><div style="font-size:1.3em;color:#ff5252;font-weight:bold">GAME OVER</div><p style="font-size:0.78em;color:#999;margin:3px">${state.name} fell in the Crystal Caverns...</p><p style="font-size:0.78em;color:#999">Level ${state.level} | Battles:${state.battles_won} | Puzzles:${state.puzzles_solved}</p><p style="font-size:0.78em;color:#999">Best Streak:${state.best_streak}</p><button class="btn btn-primary clickable" onclick="clearSave();SID=null;state=null;render()">Play Again</button></div>`;
   }
   if(showSettings){
     let sp=`<div style="text-align:center;font-size:1em;font-weight:bold;color:#4dd0e1;margin-bottom:8px">⚙️ Settings</div>`;
@@ -1084,6 +1086,8 @@ panel+=`<button class="btn btn-primary clickable" onclick="doAnswer()">Submit</b
 
 function doAnswer(){const v=document.getElementById('answer').value;if(v)api('answer',{answer:v})}
 function doShop(c){api('shop',{choice:c})}
+function resumeGame(){if(!savedSID)return;SID=savedSID;api('resume').then(()=>{}).catch(()=>{});}
+function clearSave(){try{localStorage.removeItem('cq_sid');}catch(e){}savedSID=null;render();}
 function shareVictory(){
   try{
     const cvs=document.getElementById('game').querySelector('canvas');
@@ -1104,6 +1108,7 @@ if(cv){cv.style.touchAction='manipulation';cv.addEventListener('pointerdown',()=
   if(gameMode==='battle'||gameMode==='boss'){const a=document.getElementById('answer');if(a){a.focus();if(a.value)doAnswer();}}
 });}
 loadBest();
+try{savedSID=localStorage.getItem('cq_sid');}catch(e){}
 loadSettings();
 render();
 </script>

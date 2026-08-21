@@ -1063,6 +1063,12 @@ class GameHandler(BaseHTTPRequestHandler):
             elif action == 'shop' and g:
                 g = action_shop(g, req.get('choice', '4'))
                 resp['state'] = g
+            elif action == 'resume':
+                if g:
+                    resp['sid'] = sid
+                    resp['state'] = g
+                else:
+                    resp['error'] = 'No saved game'
             else:
                 resp['error'] = 'Invalid action'
 
