@@ -50,6 +50,9 @@ canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rend
 .btn-danger{background:linear-gradient(135deg,#ff416c,#ff4b2b);color:#fff}
 .btn-success{background:linear-gradient(135deg,#11998e,#38ef7d);color:#fff}
 .btn-secondary{background:rgba(255,255,255,0.1);color:#ccc}
+.spell-row{display:flex;gap:6px;margin:4px 0}
+.spell-btn{flex:1;border:2px solid #555;border-radius:10px;padding:5px 3px;background:rgba(255,255,255,0.05);text-align:center;cursor:pointer;transition:transform .1s}
+.spell-btn.sel{transform:scale(1.04);box-shadow:0 0 10px rgba(255,255,255,0.3)}
 .math-box{text-align:center;margin:6px 0}
 .math-cat{font-size:0.72em;color:#82b1ff;margin-bottom:2px}
 .math-q{font-size:1.25em;font-weight:bold}
@@ -81,6 +84,9 @@ const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
 const ui=document.getElementById('ui');
 let W=480,H=800;
 let SID=null,state=null,lastState=null;
+let selSpell=0;
+let storyScene=0;
+let lastStoryStage=0;
 let particles=[],dmgNums=[],shakeTime=0,shakeMag=0,flashColor=null,flashAlpha=0;
 let pHitFlash=0;
 let badges={};let badgeMsg='';let badgeMsgLife=0;
@@ -881,12 +887,23 @@ function loop(){
   ctx.restore(); // end camera transform
 
   drawStreakFire();drawGoldRain();drawAttackTrail();drawSpears();drawLevelUpText();drawParticles();drawDmgNums();drawSpells();drawShockwaves();drawSwoosh();drawComboTexts();drawFlash();drawBossIntro();drawVictory();drawRoomTransition();drawVignette();
+  if((gameMode==='explore'||gameMode==='rest'||gameMode==='treasure')&&storyScene>0){
+    ctx.save();ctx.globalAlpha=0.55+0.45*Math.sin(animTime*2);
+    const sc=ctx.createRadialGradient(W/2,H*0.42,10,W/2,H*0.42,110);sc.addColorStop(0,'rgba(155,89,182,0.55)');sc.addColorStop(1,'rgba(155,89,182,0)');
+    ctx.fillStyle=sc;ctx.beginPath();ctx.arc(W/2,H*0.42,110,0,Math.PI*2);ctx.fill();ctx.restore();
+  }
   ctx.restore();
+  if(storyScene>0){storyScene-=0.012;if(storyScene<=0)storyScene=0;}
   requestAnimationFrame(loop);
 }
 
 function drawBattleScene(cy){
   if(!state||!state.monster)return;
+  // cinematic arena floor + vignette
+  const gnd=ctx.createLinearGradient(0,cy+30,0,H);gnd.addColorStop(0,'rgba(40,20,60,0)');gnd.addColorStop(1,'rgba(20,10,35,0.85)');
+  ctx.fillStyle=gnd;ctx.beginPath();ctx.ellipse(W/2,H-10,W*0.55,60,0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='rgba(124,77,255,0.25)';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(W/2,H-10,W*0.5,52,0,0,Math.PI*2);ctx.stroke();
+  const vg=ctx.createRadialGradient(W/2,H/2,H*0.3,W/2,H/2,H*0.75);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,0.45)');ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
   const px=W*0.25,py=cy;
   const m=state.monster;const mx=W*0.72,my=cy;
   const pHit=lastState&&state.hp<lastState.hp;
@@ -907,6 +924,10 @@ function drawBattleScene(cy){
   ctx.fillStyle='#333';ctx.fillRect(W*0.52,cy-55,W*0.4,5);
   ctx.fillStyle=mPct>0.5?(gameMode==='boss'?'#e74c3c':'#e74c3c'):mPct>0.25?'#f39c12':'#c0392b';
   ctx.fillRect(W*0.52,cy-55,W*0.4*mPct,5);
+  if(gameMode==='boss'&&state.boss_phase){
+    const pc=state.boss_phase===1?'#b388ff':state.boss_phase===2?'#ff7043':'#ff1744';
+    ctx.save();ctx.textAlign='center';ctx.font='bold 13px system-ui';ctx.fillStyle=pc;ctx.fillText('PHASE '+state.boss_phase+(state.boss_phase>1?' — ENRAGED!':''),W*0.72,cy-50);ctx.restore();
+  }
   // Enemy attack telegraph
   if(mAttacking){ctx.save();ctx.globalAlpha=0.6+0.4*Math.sin(animTime*20);ctx.fillStyle='#ff1744';ctx.font='bold 22px system-ui';ctx.textAlign='center';ctx.fillText('INCOMING',mx,my-70);ctx.restore();}
 }
@@ -931,6 +952,8 @@ function onStateChange(prev,curr){
   if(!prev){gameMode=curr.mode||'explore';return}
   // Mode change = room transition
   if(curr.mode!==prev.mode){roomTrans=1}
+  if(curr.story_stage>lastStoryStage && curr.story_stage<5){storyScene=1;}
+  lastStoryStage=curr.story_stage||0;
   if((curr.mode==='battle'||curr.mode==='boss')&&prev.mode!=='battle'&&prev.mode!=='boss'){monsterEnter=1;attackAnim=0;attackAnimWho=null}
   // Player damage
   if(curr.hp<prev.hp){
@@ -1044,11 +1067,23 @@ ${savedSID?'<div style="margin-top:6px"><button class="btn btn-success clickable
       panel+=`<button class="btn btn-info clickable" onclick="showMap=!showMap;render()">🗺️ Map</button>`;
       panel+=`<button class="btn btn-success clickable" onclick="api('potion')">Use Potion (${state.potions})</button>`;
     }
+  }else if(state.mode==='fork'){
+    const fl=state.fork_left, fr=state.fork_right;
+    const label={treasure:'💎 Treasure',battle:'⚔️ Battle',rest:'🌿 Rest',puzzle:'💻 Code Gate'};
+    panel+=`<div style="text-align:center;font-size:0.8em;color:#ffd54f;margin:4px 0">The path splits! Which way?</div>`;
+    panel+=`<div class="spell-row"><div class="spell-btn clickable" style="border-color:#4dd0e1" onclick="api('fork',{side:'left'})"><div style="font-weight:bold;color:#4dd0e1">⬅️ Left</div><div style="font-size:0.66em">${label[fl]||fl}</div></div><div class="spell-btn clickable" style="border-color:#ff8a80" onclick="api('fork',{side:'right'})"><div style="font-weight:bold;color:#ff8a80">Right ➡️</div><div style="font-size:0.66em">${label[fr]||fr}</div></div></div>`;
   }else if(state.mode==='battle'||state.mode==='boss'){
     const p=state.current_problem;
+    if(state.choices){
+      panel+=`<div style="font-size:0.7em;color:#bbb;margin:2px 0">Choose your spell:</div>`;
+      panel+=`<div class="spell-row">`;
+      state.choices.forEach((sp,i)=>{panel+=`<div class="spell-btn clickable ${selSpell===i?'sel':''}" style="border-color:${sp.color};${selSpell===i?'background:'+sp.color+'33':''}" onclick="selSpell=${i};render()"><div style="font-weight:bold;color:${sp.color}">${sp.name}</div><div style="font-size:0.62em;opacity:0.8">x${sp.mult} dmg</div><div style="font-size:0.58em;opacity:0.6">${sp.desc}</div></div>`;});
+      panel+=`</div>`;
+    }
     panel+=`<div class="math-box"><div class="math-cat">${p.cat}</div><div class="math-q">${p.q}</div></div>`;
     panel+=`<input type="text" id="answer" placeholder="Your answer..." onkeypress="if(event.key==='Enter')doAnswer()">`;
-    panel+=`<button class="btn btn-danger clickable" onclick="doAnswer()">Attack!</button>`;
+    panel+=`<button class="btn btn-danger clickable" onclick="doAnswer()">${state.choices?state.choices[selSpell].name:'Attack!'}</button>`;
+    if(state.last_spell)panel+=`<div style="font-size:0.62em;color:#ffd54f;text-align:center;margin-top:2px">Last: ${state.last_spell}</div>`;
   }else if(state.mode==='puzzle'){
     const p=state.current_puzzle;
     panel+=`<div style="font-size:0.85em;color:#80cbc4;font-weight:bold;text-align:center">Coding Puzzle (Level ${p.level})</div>`;
@@ -1098,7 +1133,7 @@ panel+=`<button class="btn btn-primary clickable" onclick="doAnswer()">Submit</b
   if(ans)setTimeout(()=>ans.focus(),100);
 }
 
-function doAnswer(){const v=document.getElementById('answer').value;if(v)api('answer',{answer:v})}
+function doAnswer(){const v=document.getElementById('answer').value;if(v)api('answer',{answer:v,choice:selSpell||0})}
 function doShop(c){api('shop',{choice:c})}
 function resumeGame(){if(!savedSID)return;SID=savedSID;api('resume').then(()=>{}).catch(()=>{});}
 function clearSave(){try{localStorage.removeItem('cq_sid');}catch(e){}savedSID=null;render();}

@@ -66,6 +66,21 @@ DIFFICULTY = {
     "hard": {"max": 500, "neg": True, "frac": True, "xp_mult": 0.8, "label": "Legend (13-15)"},
 }
 
+SPELLS = [
+  {"name":"Spark Bolt","color":"#4dd0e1","mult":1.0,"desc":"steady","cat":"Arithmetic"},
+  {"name":"Flame Burst","color":"#ff7043","mult":1.6,"desc":"big hit","cat":"Multiplication"},
+  {"name":"Frost Lance","color":"#4dd0e1","mult":1.25,"desc":"strong","cat":"Division"},
+  {"name":"Stone Smash","color":"#a1887f","mult":1.4,"desc":"heavy","cat":"Addition"},
+  {"name":"Venom Spray","color":"#9ccc65","mult":1.15,"desc":"toxic","cat":"Subtraction"},
+  {"name":"Shadow Strike","color":"#ab47bc","mult":1.8,"desc":"risky!","cat":"Power"},
+]
+def roll_spells(math_cat):
+    import random as _r
+    cat_map={"Arithmetic":"Spark Bolt","Multiplication":"Flame Burst","Division":"Frost Lance","Addition":"Stone Smash","Subtraction":"Venom Spray","Power":"Shadow Strike"}
+    primary=cat_map.get(math_cat,"Spark Bolt")
+    pool=[sp for sp in SPELLS if sp["name"]!=primary]
+    _r.shuffle(pool)
+    return [next(sp for sp in SPELLS if sp["name"]==primary)]+pool[:2]
 def gcd(a, b):
     while b:
         a, b = b, a % b
@@ -144,6 +159,11 @@ def new_game(name, difficulty):
         "current_problem": None,
         "current_puzzle": None,
         "puzzle_attempts": 0,
+        "choices": None,
+        "boss_phase": 0,
+        "last_spell": "",
+        "fork_left": "",
+        "fork_right": "",
         "battle_round": 0,
         "message": "",
         "message_type": "info",
@@ -180,7 +200,7 @@ def action_start(name, difficulty):
     return sid, g
 
 def action_explore(g):
-    if g["mode"] in ("battle", "boss", "puzzle", "shop"):
+    if g["mode"] in ("battle", "boss", "puzzle", "shop", "fork"):
         g["message"] = "⚠️ You're in the middle of something! Finish it first."
         g["message_type"] = "miss"
         return g
@@ -197,14 +217,26 @@ def action_explore(g):
             g["monster"] = spawn_monster(g["level"], boss=True)
             g["battle_round"] = 0
             g["current_problem"] = gen_math(g["difficulty"], g["level"] + 2)
+            g["choices"] = roll_spells(g["current_problem"]["cat"])
+            g["boss_phase"] = 1
             return g
 
+    # Path fork (interactive choice)
+    if random.random() < 0.15 and room < 14 and g["story_stage"] < 4:
+        opts=["treasure","battle","rest","puzzle"]
+        random.shuffle(opts)
+        g["mode"]="fork"
+        g["fork_left"]=opts[0]
+        g["fork_right"]=opts[1]
+        return g
     # Final boss
     if g["story_stage"] >= 4 and g["story_stage"] < 5 and room >= 14:
         g["mode"] = "boss"
         g["monster"] = spawn_monster(g["level"], boss=True)
         g["battle_round"] = 0
         g["current_problem"] = gen_math(g["difficulty"], g["level"] + 2)
+        g["choices"] = roll_spells(g["current_problem"]["cat"])
+        g["boss_phase"] = 1
         return g
 
     # Random room
@@ -214,6 +246,7 @@ def action_explore(g):
         g["monster"] = spawn_monster(g["level"])
         g["battle_round"] = 0
         g["current_problem"] = gen_math(g["difficulty"], g["level"])
+        g["choices"] = roll_spells(g["current_problem"]["cat"])
         g["message"] = f"{g['monster']['emoji']} A wild {g['monster']['name']} appears!"
     elif roll < 0.70:
         g["mode"] = "puzzle"
@@ -239,12 +272,18 @@ def action_explore(g):
         g["mode"] = "shop"
     return g
 
-def action_answer(g, answer):
+def action_answer(g, answer, choice=None):
     answer = answer.strip()
     if g["mode"] == "battle" or g["mode"] == "boss":
         prob = g["current_problem"]
         if answer.lower() == prob["a"].lower():
             dmg = g["attack"] + random.randint(0, 5)
+            ch = g.get("choices")
+            if ch and choice is not None:
+                ci = choice
+                if isinstance(ci, int) and 0 <= ci < len(ch):
+                    dmg = int(round(dmg * ch[ci]["mult"]))
+                    g["last_spell"] = ch[ci]["name"]
             g["streak"] += 1
             g["best_streak"] = max(g["best_streak"], g["streak"])
             g["math_solved"] += 1
@@ -255,6 +294,12 @@ def action_answer(g, answer):
             else:
                 g["message"] = f"✅ Correct! {dmg} damage!"
             g["monster"]["hp"] -= dmg
+            if g["mode"] == "boss" and g["monster"]["hp"] <= 0 and g["story_stage"] < 5:
+                g["story_stage"] = 5
+                g["mode"] = "explore"
+                g["message"] = "The Crystal Titan falls! You are CHAMPION!"
+                g["message_type"] = "win"
+                return g
             g["message_type"] = "hit"
             if g["monster"]["hp"] <= 0:
                 xp = int(g["monster"]["xp"] * DIFFICULTY[g["difficulty"]]["xp_mult"])
@@ -287,6 +332,13 @@ def action_answer(g, answer):
                 return g
             g["battle_round"] += 1
         g["current_problem"] = gen_math(g["difficulty"], g["level"] + (2 if g["mode"] == "boss" else 0))
+        if g["mode"] == "boss":
+            ratio = g["monster"]["hp"] / g["monster"]["max_hp"]
+            g["boss_phase"] = 3 if ratio <= 0.25 else 2 if ratio <= 0.5 else 1
+            if g["boss_phase"] >= 2:
+                g["monster"]["atk"] = int(g["monster"]["atk"] * 1.4)
+                g["message"] += " Crystal Titan ENRAGES!"
+        g["choices"] = roll_spells(g["current_problem"]["cat"])
         return g
 
     elif g["mode"] == "puzzle":
@@ -320,6 +372,20 @@ def action_answer(g, answer):
                 g["message_type"] = "miss"
         return g
 
+    return g
+
+def action_fork(g, side):
+    if g["mode"] != "fork":
+        return g
+    dest = g.get("fork_"+str(side), "treasure")
+    if dest == "battle":
+        g["mode"]="battle"; g["monster"]=spawn_monster(g["level"]); g["battle_round"]=0; g["current_problem"]=gen_math(g["difficulty"],g["level"]); g["choices"]=roll_spells(g["current_problem"]["cat"])
+    elif dest == "puzzle":
+        g["mode"]="puzzle"; lvl=min(g["level"],len(CODING_PUZZLES)); g["current_puzzle"]=CODING_PUZZLES[lvl-1].copy(); g["puzzle_attempts"]=0
+    elif dest == "rest":
+        heal=int(g["max_hp"]*0.3); g["hp"]=min(g["max_hp"],g["hp"]+heal); g["rooms_cleared"]+=1; g["mode"]="explore"
+    else:
+        gems=random.randint(3,10); g["gems"]+=gems; g["potions"]+=1; g["rooms_cleared"]+=1; g["mode"]="explore"
     return g
 
 def action_potion(g):
@@ -1060,10 +1126,13 @@ class GameHandler(BaseHTTPRequestHandler):
                 g = action_explore(g)
                 resp['state'] = g
             elif action == 'answer' and g:
-                g = action_answer(g, req.get('answer', ''))
+                g = action_answer(g, req.get('answer', ''), req.get('choice'))
                 resp['state'] = g
             elif action == 'potion' and g:
                 g = action_potion(g)
+                resp['state'] = g
+            elif action == 'fork' and g:
+                g = action_fork(g, req.get('side', 'left'))
                 resp['state'] = g
             elif action == 'shop' and g:
                 g = action_shop(g, req.get('choice', '4'))
