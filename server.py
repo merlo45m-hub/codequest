@@ -200,7 +200,7 @@ def action_explore(g):
             return g
 
     # Final boss
-    if g["story_stage"] >= 4 and room >= 14:
+    if g["story_stage"] >= 4 and g["story_stage"] < 5 and room >= 14:
         g["mode"] = "boss"
         g["monster"] = spawn_monster(g["level"], boss=True)
         g["battle_round"] = 0
@@ -262,9 +262,14 @@ def action_answer(g, answer):
                 g["xp"] += xp
                 g["gems"] += gems
                 g["battles_won"] += 1
+                was_boss = g["mode"] == "boss"
                 g["mode"] = "explore"
                 g["rooms_cleared"] += 1
-                g["message"] = f"🎉 Victory! +{xp} XP, +{gems} gems!"
+                if was_boss:
+                    g["story_stage"] = 5
+                    g["message"] = "👑 CHAMPION! You defeated the Crystal Titan and claimed the Knowledge Crystal!"
+                else:
+                    g["message"] = f"🎉 Victory! +{xp} XP, +{gems} gems!"
                 g["message_type"] = "victory"
                 check_levelup(g)
                 return g
