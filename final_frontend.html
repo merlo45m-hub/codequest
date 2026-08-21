@@ -83,6 +83,7 @@ let W=480,H=800;
 let SID=null,state=null,lastState=null;
 let particles=[],dmgNums=[],shakeTime=0,shakeMag=0,flashColor=null,flashAlpha=0;
 let pHitFlash=0;
+let badges={};let badgeMsg='';let badgeMsgLife=0;
 let animTime=0,gameMode='title';
 let selDiff='normal';
 let bestRun={rooms:0,level:1};
@@ -824,6 +825,7 @@ function loop(){
   camZoom+=(camTarget-camZoom)*0.06;camPanX+=(camPanTarget-camPanX)*0.06;
   if(monsterDeath>0){monsterDeath-=0.02;if(monsterDeath<0)monsterDeath=0}
   if(levelUpTextLife>0){levelUpTextLife-=0.015;if(levelUpTextLife<0)levelUpTextLife=0}
+  if(badgeMsgLife>0)badgeMsgLife-=0.012;
   if(victoryTime>0){victoryTime-=0.006;if(victoryTime<0)victoryTime=0}
   if(streakFire.length>0){streakFire=streakFire.filter(f=>f.life>0);streakFire.forEach(f=>{f.y-=1;f.life-=0.02;f.x+=Math.sin(animTime*10)*2})}
   if(goldRain.length>0){goldRain=goldRain.filter(g=>g.life>0);goldRain.forEach(g=>{g.y+=g.vy;g.vy+=0.2;g.life-=0.02})}
@@ -834,7 +836,8 @@ function loop(){
   ctx.save();ctx.translate(ox,oy);
   drawCavernBg();
 
-  if(showMap){drawMap();drawFlash();drawRoomTransition();drawVignette();ctx.restore();requestAnimationFrame(loop);return;}
+  if(showMap){drawMap();drawFlash();
+  if(badgeMsgLife>0){ctx.save();ctx.globalAlpha=Math.min(1,badgeMsgLife*1.5);ctx.textAlign='center';ctx.font='bold 20px system-ui';ctx.fillStyle='rgba(0,0,0,0.6)';ctx.fillRect(W*0.25,H*0.18,W*0.5,34);ctx.fillStyle='#ffd54f';ctx.fillText(badgeMsg,W*0.5,H*0.18+23);ctx.restore();}drawRoomTransition();drawVignette();ctx.restore();requestAnimationFrame(loop);return;}
 
   // Dramatic camera transform (applies to actors, not background/UI)
   ctx.save();
@@ -974,6 +977,11 @@ function onStateChange(prev,curr){
   if(curr.mode==='shop'&&prev.mode!=='shop'){sfxShop()}
   // Heal
   if(curr.hp>prev.hp&&curr.message_type==='heal'){spawnHeal(W*0.25,H*0.38,curr.hp-prev.hp);sfxCorrect()}
+  if(curr.battles_won>0)earnBadge('firstblood','First Blood');
+  if(curr.best_streak>=5)earnBadge('streak','Streak Master');
+  if(curr.puzzles_solved>0)earnBadge('puzzle','Puzzle Solver');
+  if(curr.rooms_cleared>=10)earnBadge('explorer','Deep Explorer');
+  if(curr.story_stage>=5)earnBadge('champion','Champion');
   gameMode=curr.mode||'explore';
 }
 
@@ -995,6 +1003,7 @@ ${savedSID?'<div style="margin-top:6px"><button class="btn btn-success clickable
 <div style="margin-top:6px;display:flex;gap:5px"><button class="btn btn-secondary clickable" style="font-size:0.78em;flex:1" onclick="toggleMusic()">${musicOn?'🔊 Music: On':'🔇 Music: Off'}</button><button class="btn btn-secondary clickable" style="font-size:0.78em;flex:1" onclick="showSettings=true;render()">⚙️ Settings</button></div>
 <div style="margin-top:6px"><button class="btn btn-info clickable" style="font-size:0.78em;width:100%" onclick="showHelp=true;render()">❓ How to Play</button></div>
 <div style="text-align:center;font-size:0.72em;color:#ffd54f;margin-top:4px">🏆 Best Run: Room ${bestRun.rooms} (Lv ${bestRun.level})</div>
+<div style="text-align:center;margin-top:4px;font-size:1.05em">${badgeRow()}</div>
 </div>`;
     return;
   }
@@ -1088,6 +1097,7 @@ function doAnswer(){const v=document.getElementById('answer').value;if(v)api('an
 function doShop(c){api('shop',{choice:c})}
 function resumeGame(){if(!savedSID)return;SID=savedSID;api('resume').then(()=>{}).catch(()=>{});}
 function clearSave(){try{localStorage.removeItem('cq_sid');}catch(e){}savedSID=null;render();}
+function badgeRow(){const m={firstblood:'🩸',streak:'🔥',puzzle:'💻',explorer:'🗺️',champion:'👑'};let s='';for(const k in m){if(badges[k])s+=m[k];}return s||'—';}
 function shareVictory(){
   try{
     const cvs=document.getElementById('game').querySelector('canvas');
@@ -1102,12 +1112,16 @@ function shareVictory(){
 }
 // === BEST RUN (localStorage) ===
 function loadBest(){try{const b=localStorage.getItem('cq_best');if(b){const o=JSON.parse(b);if(o&&typeof o.rooms==='number')bestRun=o;}}catch(e){}}
+function loadBadges(){try{const b=localStorage.getItem('cq_badges');if(b){const o=JSON.parse(b);if(o&&typeof o==='object')badges=o;}}catch(e){}}
+function saveBadges(){try{localStorage.setItem('cq_badges',JSON.stringify(badges));}catch(e){}}
+function earnBadge(id,name){if(badges[id])return;badges[id]=true;saveBadges();badgeMsg='🏅 '+name;badgeMsgLife=1;sfxCorrect();}
 function saveBest(rooms,level){try{if(rooms>bestRun.rooms||(rooms===bestRun.rooms&&level>bestRun.level)){bestRun={rooms,level};localStorage.setItem('cq_best',JSON.stringify(bestRun));}}catch(e){}}
 // Touch: tap the canvas during a fight to focus/submit answer (one-thumb play)
 if(cv){cv.style.touchAction='manipulation';cv.addEventListener('pointerdown',()=>{
   if(gameMode==='battle'||gameMode==='boss'){const a=document.getElementById('answer');if(a){a.focus();if(a.value)doAnswer();}}
 });}
 loadBest();
+loadBadges();
 try{savedSID=localStorage.getItem('cq_sid');}catch(e){}
 loadSettings();
 render();
