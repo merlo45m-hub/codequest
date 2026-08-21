@@ -83,6 +83,7 @@ let SID=null,state=null,lastState=null;
 let particles=[],dmgNums=[],shakeTime=0,shakeMag=0,flashColor=null,flashAlpha=0;
 let animTime=0,gameMode='title';
 let selDiff='normal';
+let bestRun={rooms:0,level:1};
 let roomTrans=0,roomTransDir=1;
 let attackAnim=0,attackAnimWho=null;
 let chestAnim=0,chestOpen=false;
@@ -899,7 +900,7 @@ async function api(action,params={}){
     const res=await fetch('/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const data=await res.json();
     if(data.sid)SID=data.sid;
-    if(data.state){onStateChange(state,data.state);state=data.state;render()}
+    if(data.state){onStateChange(state,data.state);state=data.state;if(state.rooms_cleared!=null)saveBest(state.rooms_cleared,state.level);render()}
     else if(data.error){console.error('API error:',data.error)}
   }catch(e){console.error('API error:',e);if(ui)ui.innerHTML+='<div class="msg msg-miss">Connection error — is the server running?</div>'}
 }
@@ -993,6 +994,7 @@ function render(){
   hud+=`<span class="chip">💎${state.gems||0}</span>`;
   if(state.streak>0)hud+=`<span class="chip" style="background:rgba(255,65,108,0.5)">🔥${state.streak}</span>`;
   hud+=`<span class="chip clickable" style="background:rgba(124,77,255,0.4)" onclick="toggleMusic()">${musicOn?'🔊':'🔇'}</span>`;
+  hud+=`<span class="chip" style="background:rgba(255,215,0,0.25);color:#ffd54f">🏆 R${bestRun.rooms}</span>`;
   hud+=`</div>`;
   hud+=`<div class="barwrap"><div class="barlabel">HP</div><div class="bar"><div class="barfill ${hpCls}" style="width:${Math.max(0,hpPct)}%"></div></div><span class="barnum">${state.hp}/${state.max_hp}</span></div>`;
   hud+=`<div class="barwrap"><div class="barlabel" style="color:#b388ff">XP</div><div class="bar xp"><div class="barfillx" style="width:${xpPct}%"></div></div><span class="barnum">${state.xp}/${state.xp_to_next}</span></div>`;
@@ -1042,10 +1044,14 @@ function render(){
 
 function doAnswer(){const v=document.getElementById('answer').value;if(v)api('answer',{answer:v})}
 function doShop(c){api('shop',{choice:c})}
+// === BEST RUN (localStorage) ===
+function loadBest(){try{const b=localStorage.getItem('cq_best');if(b){const o=JSON.parse(b);if(o&&typeof o.rooms==='number')bestRun=o;}}catch(e){}}
+function saveBest(rooms,level){try{if(rooms>bestRun.rooms||(rooms===bestRun.rooms&&level>bestRun.level)){bestRun={rooms,level};localStorage.setItem('cq_best',JSON.stringify(bestRun));}}catch(e){}}
 // Touch: tap the canvas during a fight to focus/submit answer (one-thumb play)
 if(cv){cv.style.touchAction='manipulation';cv.addEventListener('pointerdown',()=>{
   if(gameMode==='battle'||gameMode==='boss'){const a=document.getElementById('answer');if(a){a.focus();if(a.value)doAnswer();}}
 });}
+loadBest();
 render();
 </script>
 </body>
