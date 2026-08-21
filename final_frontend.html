@@ -88,6 +88,7 @@ let bestRun={rooms:0,level:1};
 let settings={music:false,sfx:true,reducedMotion:false};
 let showSettings=false;
 let showHelp=false;
+let showHint=false;
 let roomTrans=0,roomTransDir=1;
 let attackAnim=0,attackAnimWho=null;
 let chestAnim=0,chestOpen=false;
@@ -1033,7 +1034,9 @@ function render(){
     panel+=`<div class="code-block">${p.code}</div>`;
     panel+=`<p style="font-size:0.68em;color:#666;text-align:center">Fill the blank (____)</p>`;
     panel+=`<input type="text" id="answer" placeholder="Fill the blank..." onkeypress="if(event.key==='Enter')doAnswer()">`;
-    panel+=`<button class="btn btn-primary clickable" onclick="doAnswer()">Submit</button>`;
+    panel+=`<button class="btn btn-secondary clickable" style="font-size:0.8em" onclick="showHint=!showHint;render()">💡 Hint</button>`;
+    if(showHint&&state.current_puzzle&&state.current_puzzle.hint)panel+=`<div style="font-size:0.72em;color:#ffd54f;background:rgba(255,213,79,0.1);padding:5px;border-radius:6px;margin:4px 0">💡 ${state.current_puzzle.hint}</div>`;
+panel+=`<button class="btn btn-primary clickable" onclick="doAnswer()">Submit</button>`;
   }else if(state.mode==='shop'){
     panel+=`<div style="text-align:center;font-size:0.9em;color:#80cbc4;margin:3px">Shop</div>`;
     panel+=`<div class="shop-grid">`;

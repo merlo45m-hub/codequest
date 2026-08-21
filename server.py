@@ -45,6 +45,10 @@ CODING_PUZZLES = [
     {"level": 6, "prompt": "Make a list with 1, 2, 3", "code": "nums = ____", "answer": "[1, 2, 3]", "hint": "Lists use [ ] with commas", "explain": "Lists store multiple items."},
     {"level": 7, "prompt": "Print the length of 'dragon'", "code": "print(____('dragon'))", "answer": "len", "hint": "What function tells you length?", "explain": "len() returns length."},
     {"level": 8, "prompt": "Print numbers 0 to 4 with a loop", "code": "for i in ____(5):", "answer": "range", "hint": "What generates number sequences?", "explain": "range() makes sequences."},
+    {"level": 9, "prompt": "Make a variable called name equal to the word hero", "code": "____ = \"hero\"", "answer": "name", "hint": "Pick a label for the word", "explain": "Strings go in quotes."},
+    {"level": 10, "prompt": "Check if 10 equals 10", "code": "print(10 ____ 10)", "answer": "==", "hint": "Two equals signs mean is the same as", "explain": "== compares for equality."},
+    {"level": 11, "prompt": "Join the words cat and dog with +", "code": "print(\"cat\" ____ \"dog\")", "answer": "+", "hint": "The + sign joins strings too", "explain": "+ concatenates text."},
+    {"level": 12, "prompt": "Make a list of three colors", "code": "colors = [____, ____, ____]", "answer": "\"red\", \"green\", \"blue\"", "hint": "Separate items with commas inside [ ]", "explain": "Lists hold many values."},
 ]
 
 STORY = [
