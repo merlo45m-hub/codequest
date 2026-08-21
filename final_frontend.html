@@ -38,6 +38,7 @@ canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rend
 .diff-row{display:flex;gap:5px;margin:6px 0}
 .diff-btn{flex:1;padding:9px 4px;border-radius:9px;border:2px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:#ccc;font-size:0.72em;font-weight:bold;cursor:pointer;transition:all .15s}
 .diff-btn.sel{border-color:#7c4dff;background:rgba(124,77,255,0.25);color:#fff;box-shadow:0 0 12px rgba(124,77,255,0.4)}
+.set-row{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:0.82em;color:#ddd;margin:6px 0}
 .btn-begin{background:linear-gradient(135deg,#00f260,#0575E6);color:#fff;font-size:1.05em;padding:14px;box-shadow:0 4px 16px rgba(5,117,230,0.4)}
 .panel h2{font-size:1.1em;margin-bottom:6px;color:#4dd0e1}
 .panel p{font-size:0.8em;color:#888;margin-bottom:6px;line-height:1.4}
@@ -84,6 +85,9 @@ let particles=[],dmgNums=[],shakeTime=0,shakeMag=0,flashColor=null,flashAlpha=0;
 let animTime=0,gameMode='title';
 let selDiff='normal';
 let bestRun={rooms:0,level:1};
+let settings={music:false,sfx:true,reducedMotion:false};
+let showSettings=false;
+let showHelp=false;
 let roomTrans=0,roomTransDir=1;
 let attackAnim=0,attackAnimWho=null;
 let chestAnim=0,chestOpen=false;
@@ -105,7 +109,7 @@ let depth=0;
 let audioCtx=null;
 function initAudio(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)()}
 function beep(freq,dur,type='square',vol=0.15){
-  if(!audioCtx)return;
+  if(!audioCtx||!settings.sfx)return;
   const o=audioCtx.createOscillator(),g=audioCtx.createGain();
   o.type=type;o.frequency.value=freq;o.connect(g);g.connect(audioCtx.destination);
   g.gain.setValueAtTime(vol,audioCtx.currentTime);
@@ -127,7 +131,10 @@ function startMusic(){
   musicNodes={pad,o1,o2,lfo};
 }
 function stopMusic(){if(musicNodes){try{musicNodes.pad.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.5);}catch(e){} musicNodes=null;}}
-function toggleMusic(){musicOn=!musicOn;if(musicOn){initAudio();startMusic();}else stopMusic();render();}
+function toggleMusic(){settings.music=!settings.music;musicOn=settings.music;if(musicOn){initAudio();startMusic();}else stopMusic();saveSettings();render();}
+function saveSettings(){try{localStorage.setItem('cq_settings',JSON.stringify(settings));}catch(e){}}
+function loadSettings(){try{const s=localStorage.getItem('cq_settings');if(s){const o=JSON.parse(s);if(o&&typeof o==='object'){settings=Object.assign({music:false,sfx:true,reducedMotion:false},o);musicOn=settings.music;}}else{musicOn=settings.music;}}catch(e){}}
+function toggleSetting(k){settings[k]=!settings[k];if(k==='music'){musicOn=settings.music;if(musicOn){initAudio();startMusic();}else stopMusic();}saveSettings();render();}
 function sfxHit(){beep(800,0.08,'sawtooth',0.2);setTimeout(()=>beep(400,0.1,'sawtooth',0.15),60)}
 function sfxHurt(){beep(200,0.15,'sawtooth',0.25);setTimeout(()=>beep(150,0.2,'sawtooth',0.2),80)}
 function sfxCorrect(){beep(523,0.08,'sine',0.2);setTimeout(()=>beep(659,0.08,'sine',0.2),80);setTimeout(()=>beep(784,0.12,'sine',0.2),160)}
@@ -392,8 +399,7 @@ function drawCavernBg(){
   ctx.globalAlpha=1;
 
   // LIVING WORLD: roaming critters behind actors
-  drawBiome();
-  drawCritters();
+  if(!settings.reducedMotion){drawBiome();drawCritters();}
 
   // Floating dust
   for(let i=0;i<25;i++){
@@ -404,7 +410,7 @@ function drawCavernBg(){
   }
   ctx.globalAlpha=1;
   // Weather: drifting fog + rising embers
-  drawWeather();
+  if(!settings.reducedMotion)drawWeather();
   // Day/night mood grade (cosmetic)
   drawDayNight();
 }
@@ -977,7 +983,9 @@ function render(){
 <div class="diff-btn ${selDiff==='hard'?'sel':''}" onclick="selDiff='hard';render()">Legend<br>13-15</div>
 </div>
 <button class="btn btn-begin" onclick="api('start',{name:document.getElementById('name').value||'Hero',difficulty:selDiff})">⚔️ Begin Adventure</button>
-<div style="margin-top:6px"><button class="btn btn-secondary clickable" style="font-size:0.78em" onclick="toggleMusic()">${musicOn?'🔊 Music: On':'🔇 Music: Off'}</button></div>
+<div style="margin-top:6px;display:flex;gap:5px"><button class="btn btn-secondary clickable" style="font-size:0.78em;flex:1" onclick="toggleMusic()">${musicOn?'🔊 Music: On':'🔇 Music: Off'}</button><button class="btn btn-secondary clickable" style="font-size:0.78em;flex:1" onclick="showSettings=true;render()">⚙️ Settings</button></div>
+<div style="margin-top:6px"><button class="btn btn-info clickable" style="font-size:0.78em;width:100%" onclick="showHelp=true;render()">❓ How to Play</button></div>
+<div style="text-align:center;font-size:0.72em;color:#ffd54f;margin-top:4px">🏆 Best Run: Room ${bestRun.rooms} (Lv ${bestRun.level})</div>
 </div>`;
     return;
   }
@@ -1007,7 +1015,7 @@ function render(){
   }
   if(state.mode==='explore'||state.mode==='rest'||state.mode==='treasure'){
     if(state.story_stage>=5){
-      panel+=`<div style="text-align:center;padding:10px"><div style="color:#ffd54f;font-size:1.15em;font-weight:bold">CHAMPION!</div><p style="font-size:0.78em;color:#999;margin:4px">Battles:${state.battles_won} Puzzles:${state.puzzles_solved} Math:${state.math_solved}</p><p style="font-size:0.78em;color:#999">Best Streak:${state.best_streak}</p><button class="btn btn-primary clickable" onclick="SID=null;state=null;render()">Play Again</button></div>`;
+      panel+=`<div style="text-align:center;padding:10px"><div style="color:#ffd54f;font-size:1.15em;font-weight:bold">CHAMPION!</div><p style="font-size:0.78em;color:#999;margin:4px">Battles:${state.battles_won} Puzzles:${state.puzzles_solved} Math:${state.math_solved}</p><p style="font-size:0.78em;color:#999">Best Streak:${state.best_streak}</p><button class="btn btn-info clickable" onclick="shareVictory()">📤 Share Victory</button> <button class="btn btn-primary clickable" onclick="SID=null;state=null;render()">Play Again</button></div>`;
     }else{
       panel+=`<button class="btn btn-primary clickable" onclick="api('explore')">Explore Next Room</button>`;
       panel+=`<button class="btn btn-info clickable" onclick="showMap=!showMap;render()">🗺️ Map</button>`;
@@ -1037,6 +1045,29 @@ function render(){
   }else if(state.mode==='gameover'){
     panel+=`<div style="text-align:center;padding:12px"><div style="font-size:1.3em;color:#ff5252;font-weight:bold">GAME OVER</div><p style="font-size:0.78em;color:#999;margin:3px">${state.name} fell in the Crystal Caverns...</p><p style="font-size:0.78em;color:#999">Level ${state.level} | Battles:${state.battles_won} | Puzzles:${state.puzzles_solved}</p><p style="font-size:0.78em;color:#999">Best Streak:${state.best_streak}</p><button class="btn btn-primary clickable" onclick="SID=null;state=null;render()">Play Again</button></div>`;
   }
+  if(showSettings){
+    let sp=`<div style="text-align:center;font-size:1em;font-weight:bold;color:#4dd0e1;margin-bottom:8px">⚙️ Settings</div>`;
+    sp+=`<div class="set-row"><span>🔊 Music</span><button class="btn ${settings.music?'btn-success':'btn-secondary'} clickable" style="flex:0 0 auto;min-width:90px" onclick="toggleSetting('music')">${settings.music?'On':'Off'}</button></div>`;
+    sp+=`<div class="set-row"><span>🔔 Sound FX</span><button class="btn ${settings.sfx?'btn-success':'btn-secondary'} clickable" style="flex:0 0 auto;min-width:90px" onclick="toggleSetting('sfx')">${settings.sfx?'On':'Off'}</button></div>`;
+    sp+=`<div class="set-row"><span>🌿 Reduced Motion</span><button class="btn ${settings.reducedMotion?'btn-success':'btn-secondary'} clickable" style="flex:0 0 auto;min-width:90px" onclick="toggleSetting('reducedMotion')">${settings.reducedMotion?'On':'Off'}</button></div>`;
+    sp+=`<p style="font-size:0.68em;color:#888;margin:6px 0">Reduced Motion turns off parallax, critters & weather for slower phones.</p>`;
+    sp+=`<button class="btn btn-primary clickable" onclick="showSettings=false;render()">Done</button>`;
+    ui.innerHTML=`<div class="panel clickable">${sp}</div>`;
+    return;
+  }
+  if(showHelp){
+    let hp=`<div style="text-align:center;font-size:1em;font-weight:bold;color:#4dd0e1;margin-bottom:6px">❓ How to Play</div>`;
+    hp+=`<div style="font-size:0.74em;color:#ccc;line-height:1.5;text-align:left">
+      <b>🎯 Goal:</b> Descend the Crystal Caverns, defeat the Crystal Titan, and grab the Knowledge Crystal.<br><br>
+      <b>⚔️ Battles:</b> Solve the math problem, type your answer, then tap <b>Attack!</b> (or tap the screen). Correct hits damage the monster. 3+ in a row = STREAK bonus!<br><br>
+      <b>💻 Puzzles:</b> Fill the blank in the code to open locks.<br><br>
+      <b>🗺️ Explore:</b> Tap <b>Explore Next Room</b> to travel deeper. Use Potions to heal.<br><br>
+      <b>🎵 Settings:</b> Toggle music, sound FX, and Reduced Motion for slower phones.<br><br>
+      <b>📤 Win:</b> Beat the Titan to earn the Champion screen — share it with friends!</div>`;
+    hp+=`<button class="btn btn-primary clickable" style="margin-top:8px" onclick="showHelp=false;render()">Got it!</button>`;
+    ui.innerHTML=`<div class="panel clickable">${hp}</div>`;
+    return;
+  }
   ui.innerHTML=hud+`<div class="panel clickable">${panel}</div>`;
   const ans=document.getElementById('answer');
   if(ans)setTimeout(()=>ans.focus(),100);
@@ -1044,6 +1075,18 @@ function render(){
 
 function doAnswer(){const v=document.getElementById('answer').value;if(v)api('answer',{answer:v})}
 function doShop(c){api('shop',{choice:c})}
+function shareVictory(){
+  try{
+    const cvs=document.getElementById('game').querySelector('canvas');
+    const url=cvs.toDataURL('image/png');
+    fetch(url).then(x=>x.blob()).then(blob=>{
+      const f=new File([blob],'codequest-victory.png',{type:'image/png'});
+      if(navigator.canShare&&navigator.canShare({files:[f]})){
+        navigator.share({files:[f],title:'CodeQuest Victory!',text:(state?state.name:'Hero')+' became Champion of the Crystal Caverns!'});
+      }else{const a=document.createElement('a');a.href=url;a.download='codequest-victory.png';a.click();}
+    });
+  }catch(e){console.error('share failed',e);const a=document.createElement('a');a.href=document.getElementById('game').querySelector('canvas').toDataURL('image/png');a.download='codequest-victory.png';a.click();}
+}
 // === BEST RUN (localStorage) ===
 function loadBest(){try{const b=localStorage.getItem('cq_best');if(b){const o=JSON.parse(b);if(o&&typeof o.rooms==='number')bestRun=o;}}catch(e){}}
 function saveBest(rooms,level){try{if(rooms>bestRun.rooms||(rooms===bestRun.rooms&&level>bestRun.level)){bestRun={rooms,level};localStorage.setItem('cq_best',JSON.stringify(bestRun));}}catch(e){}}
@@ -1052,6 +1095,7 @@ if(cv){cv.style.touchAction='manipulation';cv.addEventListener('pointerdown',()=
   if(gameMode==='battle'||gameMode==='boss'){const a=document.getElementById('answer');if(a){a.focus();if(a.value)doAnswer();}}
 });}
 loadBest();
+loadSettings();
 render();
 </script>
 </body>
