@@ -1,0 +1,11 @@
+# Dev / runtime cruft to exclude
+__pycache__/
+*.pyc
+cq_*.js
+debug_*.py
+deploy_*.py
+canvas_frontend.html
+current_frontend.html
+
+# OS
+.DS_Store
