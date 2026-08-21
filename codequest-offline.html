@@ -107,6 +107,22 @@ const DIFFICULTY={"easy":{"max":20,"neg":false,"frac":false,"xp_mult":1.2},"norm
 function gcd(a,b){while(b){let t=a%b;a=b;b=t;}return a;}
 function rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
 function pick(x){return x[Math.floor(Math.random()*x.length)];}
+const SPELLS=[
+ {name:"Spark Bolt",color:"#4dd0e1",mult:1.0,desc:"steady",cat:"Arithmetic"},
+ {name:"Flame Burst",color:"#ff7043",mult:1.6,desc:"big hit",cat:"Multiplication"},
+ {name:"Frost Lance",color:"#4dd0e1",mult:1.25,desc:"strong",cat:"Division"},
+ {name:"Stone Smash",color:"#a1887f",mult:1.4,desc:"heavy",cat:"Addition"},
+ {name:"Venom Spray",color:"#9ccc65",mult:1.15,desc:"toxic",cat:"Subtraction"},
+ {name:"Shadow Strike",color:"#ab47bc",mult:1.8,desc:"risky!",cat:"Power"}
+];
+function roll_spells(mathCat){
+ const map={Arithmetic:"Spark Bolt",Multiplication:"Flame Burst",Division:"Frost Lance",Addition:"Stone Smash",Subtraction:"Venom Spray",Power:"Shadow Strike"};
+ const primary=map[mathCat]||"Spark Bolt";
+ const pool=SPELLS.filter(s=>s.name!==primary);
+ for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+ const picks=[SPELLS.find(s=>s.name===primary)].concat(pool.slice(0,2));
+ return picks;
+}
 function gen_math(difficulty,pl){
  const cfg=DIFFICULTY[difficulty];const mx=cfg.max;
  let types=["addition","subtraction"];
@@ -134,22 +150,23 @@ function spawn_monster(level,boss){
  const t=pick(avail);const scale=1+(level-t.min_level)*0.15;
  return{name:t.name,emoji:t.emoji,hp:Math.round(t.hp*scale),max_hp:Math.round(t.hp*scale),atk:Math.round(t.atk*scale),xp:Math.round(t.xp*scale)};
 }
-function new_game(name,difficulty){return{name:name||"Hero",hp:100,max_hp:100,level:1,xp:0,xp_to_next:50,gems:0,potions:3,attack:10,difficulty:difficulty||"normal",battles_won:0,puzzles_solved:0,math_solved:0,rooms_cleared:0,streak:0,best_streak:0,story_stage:0,mode:"explore",monster:null,current_problem:null,current_puzzle:null,puzzle_attempts:0,battle_round:0,message:"",message_type:"info"};}
+function new_game(name,difficulty){return{name:name||"Hero",hp:100,max_hp:100,level:1,xp:0,xp_to_next:50,gems:0,potions:3,attack:10,difficulty:difficulty||"normal",battles_won:0,puzzles_solved:0,math_solved:0,rooms_cleared:0,streak:0,best_streak:0,story_stage:0,mode:"explore",monster:null,current_problem:null,current_puzzle:null,puzzle_attempts:0,battle_round:0,message:"",message_type:"info",choices:null,boss_phase:0,last_spell:"",fork_left:"",fork_right:""};}
 function get_story_for_room(r){const t={1:0,3:1,6:2,10:3,14:4};return t[r]!==undefined?t[r]:null;}
 function check_levelup(g){while(g.xp>=g.xp_to_next){g.xp-=g.xp_to_next;g.level++;g.max_hp+=20;g.hp=g.max_hp;g.attack+=5;g.potions++;g.xp_to_next=Math.round(g.xp_to_next*1.5);g.message="LEVEL UP! Now level "+g.level+"!";g.message_type="levelup";}}
 function engine_action(g,action,params){
  params=params||{};
  if(action==="start"){g=new_game(params.name,params.difficulty);const st=get_story_for_room(0);if(st!==null)g.story_stage=st;g.message="Welcome, "+g.name+"!";return g;}
  if(action==="explore"){
-   if(["battle","boss","puzzle","shop"].includes(g.mode)){g.message="Finish it first.";g.message_type="miss";return g;}
+   if(["battle","boss","puzzle","shop","fork"].includes(g.mode)){g.message="Finish it first.";g.message_type="miss";return g;}
    g.message="";g.message_type="info";const room=g.rooms_cleared+1;const stage=get_story_for_room(room);
-   if(stage!==null){g.story_stage=stage;if(stage>=4){g.mode="boss";g.monster=spawn_monster(g.level,true);g.battle_round=0;g.current_problem=gen_math(g.difficulty,g.level+2);return g;}}
-   if(g.story_stage>=4&&g.story_stage<5&&room>=14){g.mode="boss";g.monster=spawn_monster(g.level,true);g.battle_round=0;g.current_problem=gen_math(g.difficulty,g.level+2);return g;}
+   if(stage!==null){g.story_stage=stage;if(stage>=4){g.mode="boss";g.monster=spawn_monster(g.level,true);g.battle_round=0;g.current_problem=gen_math(g.difficulty,g.level+2);g.choices=roll_spells(g.current_problem.cat);g.boss_phase=1;return g;}}
+   if(g.story_stage>=4&&g.story_stage<5&&room>=14){g.mode="boss";g.monster=spawn_monster(g.level,true);g.battle_round=0;g.current_problem=gen_math(g.difficulty,g.level+2);g.choices=roll_spells(g.current_problem.cat);g.boss_phase=1;return g;}
    const roll=Math.random();
-   if(roll<0.45){g.mode="battle";g.monster=spawn_monster(g.level);g.battle_round=0;g.current_problem=gen_math(g.difficulty,g.level);g.message=g.monster.emoji+" Wild "+g.monster.name+"!";}
+   if(roll<0.45){g.mode="battle";g.monster=spawn_monster(g.level);g.battle_round=0;g.current_problem=gen_math(g.difficulty,g.level);g.choices=roll_spells(g.current_problem.cat);g.message=g.monster.emoji+" Wild "+g.monster.name+"!";}
    else if(roll<0.70){const lvl=Math.min(g.level,CODING_PUZZLES.length);g.current_puzzle=Object.assign({},CODING_PUZZLES[lvl-1]);g.puzzle_attempts=0;g.mode="puzzle";}
    else if(roll<0.82){const gems=rnd(3,10);g.gems+=gems;if(Math.random()<0.4){g.potions++;g.message="Treasure! +"+gems+" gems, +1 potion!";}else{g.message="Treasure! +"+gems+" gems!";}g.message_type="treasure";g.rooms_cleared++;}
    else if(roll<0.92){const heal=Math.round(g.max_hp*0.3);g.hp=Math.min(g.max_hp,g.hp+heal);g.message="Rest. +"+heal+" HP.";g.rooms_cleared++;}
+   else if(Math.random()<0.15&&room<14&&g.story_stage<4){const opts=["treasure","battle","rest","puzzle"];for(let i=opts.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[opts[i],opts[j]]=[opts[j],opts[i]];}g.mode="fork";g.fork_left=opts[0];g.fork_right=opts[1];}
    else{g.mode="shop";}
    return g;
  }
@@ -159,11 +176,14 @@ function engine_action(g,action,params){
      const prob=g.current_problem;
      if(ans.toLowerCase()===prob.a.toLowerCase()){
        let dmg=g.attack+rnd(0,5);g.streak++;g.best_streak=Math.max(g.best_streak,g.streak);g.math_solved++;
+const ch=g.choices;if(ch&&params.choice!==undefined&&params.choice!==null){const ci=params.choice;if(ci>=0&&ci<ch.length){dmg=Math.round(dmg*ch[ci].mult);g.last_spell=ch[ci].name;}}
        if(g.streak>=3){const bonus=g.streak*2;dmg+=bonus;g.message="STREAK x"+g.streak+"! +"+bonus+"!";}else{g.message="Correct! "+dmg+" dmg!";}
        g.monster.hp-=dmg;g.message_type="hit";
        if(g.monster.hp<=0){const xp=Math.round(g.monster.xp*DIFFICULTY[g.difficulty].xp_mult);const gems=rnd(1,3);g.xp+=xp;g.gems+=gems;g.battles_won++;const wasb=g.mode==="boss";g.mode="explore";g.rooms_cleared++;if(wasb){g.story_stage=5;g.message="CHAMPION! You defeated the Crystal Titan!";}else{g.message="Victory! +"+xp+" XP, +"+gems+" gems!";}g.message_type="victory";check_levelup(g);return g;}
      } else {const m_dmg=g.monster.atk+rnd(0,3);g.hp-=m_dmg;g.streak=0;g.message="Wrong! Was "+prob.a+". -"+m_dmg+" HP";g.message_type="miss";if(g.hp<=0){g.hp=0;g.mode="gameover";g.message="Defeated!";g.message_type="defeat";return g;}g.battle_round++;}
-     g.current_problem=gen_math(g.difficulty,g.level+(g.mode==="boss"?2:0));return g;
+     if(g.mode==="boss"){const ratio=g.monster.hp/g.monster.max_hp;g.boss_phase=ratio<=0.25?3:(ratio<=0.5?2:1);if(g.boss_phase>=2){g.monster.atk=Math.round(g.monster.atk*1.4);g.message+=" Crystal Titan ENRAGES!";}}
+g.choices=roll_spells(g.current_problem.cat);
+g.current_problem=gen_math(g.difficulty,g.level+(g.mode==="boss"?2:0));return g;
    } else if(g.mode==="puzzle"){
      const p=g.current_puzzle;g.puzzle_attempts++;
      if(ans.toLowerCase()===p.answer.toLowerCase()){const xp=50+p.level*20;g.xp+=xp;g.gems+=5;g.puzzles_solved++;g.mode="explore";g.rooms_cleared++;g.message="Correct! +"+xp+" XP. "+p.explain;g.message_type="victory";check_levelup(g);}
@@ -173,7 +193,16 @@ function engine_action(g,action,params){
    }
    return g;
  }
- if(action==="potion"){
+ if(action==="fork"){
+ if(g.mode!=="fork")return g;
+ const dest=g["fork_"+params.side]||"treasure";
+ if(dest==="battle"){g.mode="battle";g.monster=spawn_monster(g.level);g.battle_round=0;g.current_problem=gen_math(g.difficulty,g.level);g.choices=roll_spells(g.current_problem.cat);}
+ else if(dest==="puzzle"){const lvl=Math.min(g.level,CODING_PUZZLES.length);g.current_puzzle=Object.assign({},CODING_PUZZLES[lvl-1]);g.puzzle_attempts=0;g.mode="puzzle";}
+ else if(dest==="rest"){const heal=Math.round(g.max_hp*0.3);g.hp=Math.min(g.max_hp,g.hp+heal);g.rooms_cleared++;g.mode="explore";}
+ else{const gems=rnd(3,10);g.gems+=gems;g.potions++;g.rooms_cleared++;g.mode="explore";}
+ return g;
+}
+if(action==="potion"){
    if(g.potions>0&&g.hp<g.max_hp){g.potions--;const heal=Math.min(50,g.max_hp-g.hp);g.hp+=heal;g.message="Healed "+heal+" HP ("+g.potions+" left)";g.message_type="heal";}
    else if(g.potions===0){g.message="No potions!";g.message_type="miss";}
    else{g.message="HP full!";g.message_type="info";}
