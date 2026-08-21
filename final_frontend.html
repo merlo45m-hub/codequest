@@ -82,6 +82,7 @@ const ui=document.getElementById('ui');
 let W=480,H=800;
 let SID=null,state=null,lastState=null;
 let particles=[],dmgNums=[],shakeTime=0,shakeMag=0,flashColor=null,flashAlpha=0;
+let pHitFlash=0;
 let animTime=0,gameMode='title';
 let selDiff='normal';
 let bestRun={rooms:0,level:1};
@@ -581,6 +582,7 @@ function drawDmgNums(){
   }
 }
 function drawFlash(){
+  if(pHitFlash>0){pHitFlash-=0.04;if(pHitFlash<0)pHitFlash=0;ctx.save();ctx.globalAlpha=pHitFlash*0.5;ctx.strokeStyle='#ff1744';ctx.lineWidth=18;ctx.strokeRect(9,9,W-18,H-18);ctx.restore();}
   if(flashAlpha>0){ctx.fillStyle=flashColor;ctx.globalAlpha=flashAlpha;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;flashAlpha-=0.04}
 }
 
@@ -882,6 +884,8 @@ function drawBattleScene(cy){
   const mHit=lastState&&lastState.monster&&state.monster.hp<lastState.monster.hp;
   const pAttacking=attackAnim>0&&attackAnimWho==='player';
   const mAttacking=attackAnim>0&&attackAnimWho==='monster';
+  // Player streak aura
+  if(state&&state.streak>=2){const sa=Math.min(1,state.streak/8);ctx.save();ctx.globalAlpha=0.25+0.4*sa;const ag=ctx.createRadialGradient(px,py,8,px,py,46);ag.addColorStop(0,'rgba(255,80,120,0)');ag.addColorStop(1,'rgba(255,80,120,'+(0.5*sa)+')');ctx.fillStyle=ag;ctx.beginPath();ctx.arc(px,py,46,0,Math.PI*2);ctx.fill();ctx.restore();}
   drawPlayer(px,py,1.8,pHit,pAttacking);
   const mType=m.name.toLowerCase().split(' ')[0];
   const mEnterX=mx+monsterEnter*W*0.5;
@@ -894,6 +898,8 @@ function drawBattleScene(cy){
   ctx.fillStyle='#333';ctx.fillRect(W*0.52,cy-55,W*0.4,5);
   ctx.fillStyle=mPct>0.5?(gameMode==='boss'?'#e74c3c':'#e74c3c'):mPct>0.25?'#f39c12':'#c0392b';
   ctx.fillRect(W*0.52,cy-55,W*0.4*mPct,5);
+  // Enemy attack telegraph
+  if(mAttacking){ctx.save();ctx.globalAlpha=0.6+0.4*Math.sin(animTime*20);ctx.fillStyle='#ff1744';ctx.font='bold 22px system-ui';ctx.textAlign='center';ctx.fillText('INCOMING',mx,my-70);ctx.restore();}
 }
 
 loop();
@@ -919,7 +925,7 @@ function onStateChange(prev,curr){
   if((curr.mode==='battle'||curr.mode==='boss')&&prev.mode!=='battle'&&prev.mode!=='boss'){monsterEnter=1;attackAnim=0;attackAnimWho=null}
   // Player damage
   if(curr.hp<prev.hp){
-    shakeTime=10;shakeMag=10;flashColor='#ff0000';flashAlpha=0.4;
+    shakeTime=10;shakeMag=10;flashColor='#ff0000';flashAlpha=0.4;pHitFlash=1;
     spawnDmg(W*0.25,H*0.38,prev.hp-curr.hp,'player');
     spawnParticles(W*0.25,H*0.42,'#ff5252',25);sfxHurt();
     attackAnim=1;attackAnimWho='monster';
