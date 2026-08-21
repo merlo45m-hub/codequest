@@ -121,21 +121,25 @@ function beep(freq,dur,type='square',vol=0.15){
   o.start();o.stop(audioCtx.currentTime+dur);
 }
 // === AMBIENT SOUNDTRACK (muted by default; toggle with 🔊) ===
-let musicOn=false, musicNodes=null;
-function startMusic(){
-  if(!audioCtx||musicNodes)return;
+let musicOn=false, musicNodes=null, currentMusicBiome='cavern';
+function startMusic(biome){try{
+  if(!audioCtx)return;
+  if(musicNodes)stopMusic();
+  const b=biome||currentMusicBiome||'cavern';
+  const notes=b==='ruins'?[130.81,196.0]:[110.0,130.81]; // ruins: bright C major-ish; cavern: darker A minor-ish
   const pad=audioCtx.createGain();pad.gain.value=0.0;pad.connect(audioCtx.destination);
-  const o1=audioCtx.createOscillator();o1.type='sine';o1.frequency.value=110; // A2
-  const o2=audioCtx.createOscillator();o2.type='sine';o2.frequency.value=164.81; // E3
+  const o1=audioCtx.createOscillator();o1.type='sine';o1.frequency.value=notes[0];
+  const o2=audioCtx.createOscillator();o2.type='sine';o2.frequency.value=notes[1];
   const lfo=audioCtx.createOscillator();lfo.type='sine';lfo.frequency.value=0.07;
   const lfoG=audioCtx.createGain();lfoG.gain.value=0.018;lfo.connect(lfoG);lfoG.connect(pad.gain);
   o1.connect(pad);o2.connect(pad);
   o1.start();o2.start();lfo.start();
   pad.gain.linearRampToValueAtTime(0.05,audioCtx.currentTime+2);
-  musicNodes={pad,o1,o2,lfo};
-}
+  musicNodes={pad,o1,o2,lfo};currentMusicBiome=b;
+}catch(e){}}
+function setMusicBiome(b){if(!b||b===currentMusicBiome)return;if(musicOn){startMusic(b);}else{currentMusicBiome=b;}}
 function stopMusic(){if(musicNodes){try{musicNodes.pad.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.5);}catch(e){} musicNodes=null;}}
-function toggleMusic(){settings.music=!settings.music;musicOn=settings.music;if(musicOn){initAudio();startMusic();}else stopMusic();saveSettings();render();}
+function toggleMusic(){settings.music=!settings.music;musicOn=settings.music;if(musicOn){initAudio();startMusic(curBiome);}else stopMusic();saveSettings();render();}
 function saveSettings(){try{localStorage.setItem('cq_settings',JSON.stringify(settings));}catch(e){}}
 function loadSettings(){try{const s=localStorage.getItem('cq_settings');if(s){const o=JSON.parse(s);if(o&&typeof o==='object'){settings=Object.assign({music:false,sfx:true,reducedMotion:false},o);musicOn=settings.music;}}else{musicOn=settings.music;}}catch(e){}}
 function toggleSetting(k){settings[k]=!settings[k];if(k==='music'){musicOn=settings.music;if(musicOn){initAudio();startMusic();}else stopMusic();}saveSettings();render();}
@@ -335,6 +339,7 @@ function drawMonster(x,y,scl,type,hit,attacking){
 function drawCavernBg(){
   let depth=state?Math.min(7,Math.floor(state.rooms_cleared/3)):0;
   curBiome=depth>=3?'ruins':'cavern';
+  setMusicBiome(curBiome);
   const palettes=[
     ['#0a0a2a','#1a1a4e','#0a0a1a'],['#0a1a0a','#1a3a10','#0a0f0a'],
     ['#1a0a2a','#3a1050','#0f0010'],['#0a1a2a','#003040','#000510'],
