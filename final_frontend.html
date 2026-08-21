@@ -93,6 +93,7 @@ let lowHpPulse=0;
 let levelUpText="";
 let levelUpTextLife=0;
 let hitStop=0;
+let victoryTime=0;
 let streakFire=[];
 let goldRain=[];
 let attackTrail=[];
@@ -267,6 +268,28 @@ function drawMonster(x,y,scl,type,hit,attacking){
     ctx.fillStyle='#fff';ctx.globalAlpha=0.6+Math.sin(animTime*3)*0.3;ctx.beginPath();ctx.arc(-6,-6,5,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
     ctx.fillStyle='#ffe082';ctx.beginPath();ctx.arc(-5,-3,3.5,0,Math.PI*2);ctx.arc(5,-3,3.5,0,Math.PI*2);ctx.fill();
     ctx.fillStyle='#c0392b';ctx.beginPath();ctx.arc(-5,-3,1.6,0,Math.PI*2);ctx.arc(5,-3,1.6,0,Math.PI*2);ctx.fill();
+  }else if(t.includes('fire')){
+    // Fire Imp: horned, flame-tipped tail, glowing eyes
+    const fl=Math.sin(animTime*8)*3;
+    ctx.fillStyle='#7b241c';ctx.beginPath();ctx.arc(0,-2,13,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#e74c3c';ctx.beginPath();ctx.arc(0,-2,9,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#c0392b';ctx.beginPath();ctx.moveTo(-7,-12);ctx.lineTo(-3,-20);ctx.lineTo(1,-12);ctx.fill();
+    ctx.beginPath();ctx.moveTo(7,-12);ctx.lineTo(3,-20);ctx.lineTo(-1,-12);ctx.fill();
+    ctx.fillStyle='#ffd54f';ctx.shadowColor='#ff8c00';ctx.shadowBlur=10;
+    ctx.beginPath();ctx.arc(-4,-3,3,0,Math.PI*2);ctx.arc(4,-3,3,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+    ctx.fillStyle='#1a1a2e';ctx.beginPath();ctx.arc(-4,-3,1.2,0,Math.PI*2);ctx.arc(4,-3,1.2,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#ff7043';ctx.beginPath();ctx.moveTo(13,4);ctx.quadraticCurveTo(22,-2,18,-12-fl);ctx.quadraticCurveTo(26,-4,16,8);ctx.fill();
+  }else if(t.includes('ice')||t.includes('frost')){
+    const ga=Math.sin(animTime*2)*0.15+0.7;ctx.globalAlpha=ga;
+    const c=ctx.createLinearGradient(0,-16,0,16);c.addColorStop(0,'#d6f5ff');c.addColorStop(1,'#5dade2');
+    ctx.fillStyle=c;
+    ctx.beginPath();ctx.arc(0,-8,15,Math.PI,0);
+    for(let i=0;i<5;i++){const yy=10+i*4;ctx.lineTo(12-i*5,yy);ctx.lineTo(-2-i*3,yy+2);}
+    ctx.lineTo(-14,10);ctx.closePath();ctx.fill();
+    ctx.strokeStyle='#aed6f1';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(-8,-14);ctx.lineTo(-12,-22);ctx.moveTo(8,-14);ctx.lineTo(12,-22);ctx.stroke();
+    ctx.fillStyle='#2e86c1';ctx.shadowColor='#85c1e9';ctx.shadowBlur=10;
+    ctx.beginPath();ctx.arc(-5,-10,2.5,0,Math.PI*2);ctx.arc(5,-10,2.5,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+    ctx.globalAlpha=1;
   }else{
     const g=ctx.createRadialGradient(-4,-6,2,0,-2,16);g.addColorStop(0,'#ffa726');g.addColorStop(1,'#d35400');
     ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,-2,13,0,Math.PI*2);ctx.fill();
@@ -429,6 +452,27 @@ function drawBossIntro(){
     ctx.fillText('Crystal Titan approaches...',W/2,H/2+30);
     ctx.globalAlpha=1;
   }
+}
+function drawVictory(){
+  if(victoryTime<=0)return;
+  // golden glow
+  ctx.globalAlpha=victoryTime*0.5;ctx.fillStyle='#ffd700';
+  const g=ctx.createRadialGradient(W/2,H*0.4,10,W/2,H*0.4,W*0.6);g.addColorStop(0,'rgba(255,215,0,0.6)');g.addColorStop(1,'rgba(255,215,0,0)');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;
+  // floating Knowledge Crystal
+  const cy=H*0.4+Math.sin(animTime*2)*8;
+  ctx.save();ctx.translate(W/2,cy);ctx.rotate(animTime*0.6);
+  const cg=ctx.createLinearGradient(0,-26,0,26);cg.addColorStop(0,'#aef');cg.addColorStop(0.5,'#4dd0e1');cg.addColorStop(1,'#1565c0');
+  ctx.fillStyle=cg;ctx.shadowColor='#4dd0e1';ctx.shadowBlur=30;
+  ctx.beginPath();ctx.moveTo(0,-26);ctx.lineTo(16,-6);ctx.lineTo(10,26);ctx.lineTo(-10,26);ctx.lineTo(-16,-6);ctx.closePath();ctx.fill();
+  ctx.shadowBlur=0;ctx.restore();
+  // banner
+  ctx.globalAlpha=Math.min(1,victoryTime*1.5);
+  ctx.textAlign='center';ctx.fillStyle='#ffd54f';ctx.font='bold 30px system-ui';
+  ctx.strokeStyle='#000';ctx.lineWidth=5;ctx.strokeText('CHAMPION!',W/2,H*0.7);ctx.fillText('CHAMPION!',W/2,H*0.7);
+  ctx.font='bold 13px system-ui';ctx.fillStyle='#fff';
+  ctx.strokeText('You claimed the Knowledge Crystal',W/2,H*0.7+26);ctx.fillText('You claimed the Knowledge Crystal',W/2,H*0.7+26);
+  ctx.globalAlpha=1;
 }
 
 // === PARTICLES & EFFECTS ===
@@ -728,6 +772,7 @@ function loop(){
   camZoom+=(camTarget-camZoom)*0.06;camPanX+=(camPanTarget-camPanX)*0.06;
   if(monsterDeath>0){monsterDeath-=0.02;if(monsterDeath<0)monsterDeath=0}
   if(levelUpTextLife>0){levelUpTextLife-=0.015;if(levelUpTextLife<0)levelUpTextLife=0}
+  if(victoryTime>0){victoryTime-=0.006;if(victoryTime<0)victoryTime=0}
   if(streakFire.length>0){streakFire=streakFire.filter(f=>f.life>0);streakFire.forEach(f=>{f.y-=1;f.life-=0.02;f.x+=Math.sin(animTime*10)*2})}
   if(goldRain.length>0){goldRain=goldRain.filter(g=>g.life>0);goldRain.forEach(g=>{g.y+=g.vy;g.vy+=0.2;g.life-=0.02})}
   if(attackTrail.length>0){attackTrail=attackTrail.filter(t=>t.life>0);attackTrail.forEach(t=>{t.life-=0.035})}
@@ -775,7 +820,7 @@ function loop(){
   }
   ctx.restore(); // end camera transform
 
-  drawStreakFire();drawGoldRain();drawAttackTrail();drawSpears();drawLevelUpText();drawParticles();drawDmgNums();drawSpells();drawShockwaves();drawSwoosh();drawComboTexts();drawFlash();drawBossIntro();drawRoomTransition();drawVignette();
+  drawStreakFire();drawGoldRain();drawAttackTrail();drawSpears();drawLevelUpText();drawParticles();drawDmgNums();drawSpells();drawShockwaves();drawSwoosh();drawComboTexts();drawFlash();drawBossIntro();drawVictory();drawRoomTransition();drawVignette();
   ctx.restore();
   requestAnimationFrame(loop);
 }
@@ -807,14 +852,15 @@ loop();
 // === STATE MANAGEMENT ===
 
 async function api(action,params={}){
-  initAudio();
+  try{initAudio()}catch(e){}
   const body={action,sid:SID,...params};
   try{
     const res=await fetch('/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const data=await res.json();
     if(data.sid)SID=data.sid;
     if(data.state){onStateChange(state,data.state);state=data.state;render()}
-  }catch(e){console.error('API error:',e)}
+    else if(data.error){console.error('API error:',data.error)}
+  }catch(e){console.error('API error:',e);if(ui)ui.innerHTML+='<div class="msg msg-miss">Connection error — is the server running?</div>'}
 }
 
 function onStateChange(prev,curr){
@@ -859,6 +905,7 @@ function onStateChange(prev,curr){
   if(curr.message_type==='treasure'){flashColor='#ffd700';flashAlpha=0.3;spawnParticles(W*0.5,H*0.4,'#ffd54f',20);sfxTreasure();chestOpen=true;chestAnim=0;for(let i=0;i<25;i++){goldRain.push({x:W/2+(Math.random()-0.5)*80,y:H*0.35,vy:-1-Math.random()*5,size:2+Math.random()*4,color:'#ffd700',life:1})}}
   // Victory
   if(curr.message_type==='victory'&&curr.mode!=='boss'){flashColor='#ffd700';flashAlpha=0.3;sfxCorrect()}
+  if(curr.story_stage>=5&&prev.story_stage<5){victoryTime=1;flashColor='#ffd700';flashAlpha=0.6;for(let i=0;i<40;i++)spawnParticles(W*0.5,H*0.45,'#ffd54f',40);sfxVictory();hitStop=8}
   // Correct answer
   if(prev.mode==='battle'&&curr.mode==='explore'&&curr.message_type==='victory'){sfxVictory()}
   // Wrong answer
@@ -893,6 +940,8 @@ function render(){
   }
   const zones=['Entrance','Blue Caverns','Green Tunnels','Frozen Depths','Amethyst Halls','Titan Gate'];
   const zoneName=zones[Math.min(5,Math.floor(state.rooms_cleared/3))];
+  const hpPct=(state.hp/state.max_hp)*100;
+  const hpCls=hpPct>50?'':hpPct>25?'mid':'low';
   const xpPct=Math.max(0,Math.min(100,(state.xp/state.xp_to_next)*100));
   let hud=`<div class="hud clickable">`;
   hud+=`<span class="chip lv">⭐${state.level}</span>`;

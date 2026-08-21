@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CodeQuest Crystal Caverns</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #0a0a1a; color: #e0e0e0;
+  min-height: 100vh; display: flex; justify-content: center;
+  align-items: center; padding: 8px; overflow: hidden;
+  user-select: none; -webkit-user-select: none;
+}
+#game {
+  max-width: 480px; width: 100%; position: relative;
+  background: linear-gradient(180deg, #0f0c29, #1a1a3e);
+  border-radius: 16px; overflow: hidden;
+  box-shadow: 0 0 60px rgba(80,80,200,0.2), inset 0 0 40px rgba(0,0,0,0.3);
+}
+.game-bg {
+  position: absolute; inset: 0; z-index: 0;
+  background: radial-gradient(ellipse at 50% 30%, rgba(60,40,100,0.3), transparent 70%);
+}
+.crystal { position: absolute; border-radius: 50%; filter: blur(3px); opacity: 0.3; animation: float 4s ease-in-out infinite; }
+.crystal.c1 { width: 20px; height: 20px; background: #4dd0e1; top: 15%; left: 10%; animation-delay: 0s; }
+.crystal.c2 { width: 14px; height: 14px; background: #ce93d8; top: 60%; right: 8%; animation-delay: 1.5s; }
+.crystal.c3 { width: 10px; height: 10px; background: #80cbc4; top: 80%; left: 20%; animation-delay: 3s; }
+.crystal.c4 { width: 16px; height: 16px; background: #7c4dff; top: 25%; right: 15%; animation-delay: 2s; }
+.crystal.c5 { width: 8px; height: 8px; background: #ffd54f; top: 45%; left: 5%; animation-delay: 0.8s; }
+@keyframes float { 0%,100% { transform: translateY(0) scale(1); opacity: 0.2; } 50% { transform: translateY(-15px) scale(1.2); opacity: 0.5; } }
+#header {
+  position: relative; z-index: 1; padding: 12px 16px;
+  background: linear-gradient(90deg, rgba(0,242,96,0.1), rgba(5,117,230,0.1));
+  border-bottom: 1px solid rgba(100,150,255,0.15);
+}
+h1 { text-align: center; font-size: 1.5em; margin-bottom: 2px;
+  background: linear-gradient(90deg, #00f260, #0575E6);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.subtitle { text-align: center; font-size: 0.75em; color: #789; }
+#stats-bar {
+  display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 12px; position: relative; z-index: 1;
+  background: rgba(0,0,0,0.3); font-size: 0.72em;
+}
+.stat-chip { background: rgba(255,255,255,0.08); padding: 4px 10px; border-radius: 6px; white-space: nowrap; transition: transform 0.2s; }
+.stat-chip.flash { animation: chip-flash 0.5s; }
+@keyframes chip-flash { 0%,100% { transform: scale(1); } 50% { transform: scale(1.3); background: rgba(255,255,100,0.3); } }
+#hp-container { width: 100%; padding: 0 12px 4px; position: relative; z-index: 1; }
+.hp-bar-bg { width: 100%; height: 10px; background: #1a1a2e; border-radius: 5px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); }
+.hp-bar-fill { height: 100%; border-radius: 5px; transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+  background: linear-gradient(90deg, #00e676, #69f0ae); box-shadow: 0 0 8px rgba(0,230,118,0.4); }
+.hp-bar-fill.low { background: linear-gradient(90deg, #ff5252, #ff8a80); box-shadow: 0 0 8px rgba(255,82,82,0.4); }
+.hp-bar-fill.mid { background: linear-gradient(90deg, #ffc107, #ffd54f); box-shadow: 0 0 8px rgba(255,193,7,0.4); }
+#content { position: relative; z-index: 1; padding: 8px 16px 16px; min-height: 350px; }
+.msg { padding: 10px; border-radius: 8px; margin: 6px 0; font-weight: bold; text-align: center; font-size: 0.85em; }
+.msg-info { background: rgba(100,100,255,0.15); color: #82b1ff; }
+.msg-hit { background: rgba(0,255,100,0.15); color: #69f0ae; animation: msg-pop 0.3s; }
+.msg-miss { background: rgba(255,50,50,0.15); color: #ff8a80; animation: msg-shake 0.4s; }
+.msg-victory { background: rgba(255,215,0,0.15); color: #ffd54f; animation: msg-pop 0.4s; }
+.msg-defeat { background: rgba(255,50,50,0.25); color: #ff8a80; animation: msg-fade 0.6s; }
+.msg-treasure { background: rgba(255,215,0,0.15); color: #ffd54f; animation: msg-pop 0.4s; }
+.msg-heal { background: rgba(0,255,100,0.15); color: #69f0ae; animation: msg-pop 0.3s; }
+.msg-levelup { background: rgba(200,100,255,0.2); color: #ce93d8; font-size: 1em; animation: msg-levelup-anim 0.6s; }
+@keyframes msg-pop { 0% { transform: scale(0.7); opacity: 0; } 60% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
+@keyframes msg-shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+@keyframes msg-fade { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
+@keyframes msg-levelup-anim { 0% { transform: scale(0.5) rotate(-5deg); opacity: 0; } 50% { transform: scale(1.2) rotate(3deg); } 100% { transform: scale(1) rotate(0); opacity: 1; } }
+.story-box { background: rgba(100,80,150,0.12); border-radius: 10px; padding: 10px; margin: 6px 0; border-left: 3px solid #7c4dff; }
+.story-title-s { font-size: 0.9em; font-weight: bold; color: #b39ddb; margin-bottom: 4px; }
+.story-text { font-size: 0.78em; color: #9fa8da; line-height: 1.4; font-style: italic; }
+#battle-arena { position: relative; width: 100%; height: 180px; margin: 8px 0; border-radius: 12px;
+  background: radial-gradient(ellipse at center, rgba(40,20,60,0.4), rgba(10,10,20,0.6));
+  border: 1px solid rgba(100,80,150,0.2); overflow: hidden; display: none; }
+#battle-arena.active { display: block; }
+#battle-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.monster-info { position: absolute; top: 4px; left: 8px; right: 8px; z-index: 2; }
+.monster-name { font-size: 0.8em; color: #ff8a80; font-weight: bold; }
+.monster-hp-bg { width: 100%; height: 6px; background: #1a1a2e; border-radius: 3px; margin-top: 2px; overflow: hidden; }
+.monster-hp-fill { height: 100%; background: linear-gradient(90deg, #ff5252, #ff8a80); border-radius: 3px; transition: width 0.4s; }
+.player-sprite { position: absolute; bottom: 8px; left: 20%; font-size: 2.5em; z-index: 2;
+  animation: idle-p 2s ease-in-out infinite; transition: left 0.3s; }
+.monster-sprite { position: absolute; bottom: 12px; right: 20%; font-size: 2.8em; z-index: 2;
+  animation: idle-m 2s ease-in-out infinite; transition: right 0.3s; }
+.player-sprite.hit { animation: hit-shake 0.4s; }
+.monster-sprite.hit { animation: hit-shake 0.4s; }
+.player-sprite.attack { animation: atk-fwd 0.4s; }
+.monster-sprite.attack { animation: atk-bwd 0.4s; }
+@keyframes idle-p { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes idle-m { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes hit-shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-10px) rotate(-5deg); } 40% { transform: translateX(10px) rotate(5deg); } 60% { transform: translateX(-8px); } 80% { transform: translateX(8px); } }
+@keyframes atk-fwd { 0% { left: 20%; } 40% { left: 55%; } 100% { left: 20%; } }
+@keyframes atk-bwd { 0% { right: 20%; } 40% { right: 55%; } 100% { right: 20%; } }
+.dmg-num { position: absolute; font-size: 1.4em; font-weight: bold; pointer-events: none; z-index: 10;
+  animation: dmg-float 1s ease-out forwards; }
+.dmg-num.player { color: #ff5252; text-shadow: 0 0 6px rgba(255,82,82,0.6); }
+.dmg-num.monster { color: #69f0ae; text-shadow: 0 0 6px rgba(105,240,174,0.6); }
+@keyframes dmg-float { 0% { transform: translateY(0) scale(0.5); opacity: 0; } 20% { transform: translateY(-20px) scale(1.3); opacity: 1; } 100% { transform: translateY(-60px) scale(0.8); opacity: 0; } }
+.flash-overlay { position: absolute; inset: 0; z-index: 5; pointer-events: none;
+  background: rgba(255,100,100,0.3); opacity: 0; }
+.flash-overlay.flash { animation: flash-red 0.2s; }
+.flash-overlay.flash-gold { animation: flash-gold 0.3s; }
+.flash-overlay.flash-purple { animation: flash-purple 0.4s; }
+@keyframes flash-red { 0%,100% { opacity: 0; } 50% { opacity: 1; background: rgba(255,50,50,0.4); } }
+@keyframes flash-gold { 0%,100% { opacity: 0; } 50% { opacity: 1; background: rgba(255,215,0,0.3); } }
+@keyframes flash-purple { 0%,100% { opacity: 0; } 50% { opacity: 1; background: rgba(150,50,200,0.3); } }
+#screen-shake { transition: transform 0s; }
+#screen-shake.shake { animation: shake-screen 0.4s; }
+@keyframes shake-screen { 0%,100% { transform: translate(0,0); } 10% { transform: translate(-3px,-2px); } 20% { transform: translate(3px,2px); } 30% { transform: translate(-3px,2px); } 40% { transform: translate(3px,-2px); } 50% { transform: translate(-2px,1px); } 60% { transform: translate(2px,-1px); } 70% { transform: translate(-2px,-2px); } 80% { transform: translate(2px,2px); } 90% { transform: translate(-1px,1px); } }
+.btn { display: block; width: 100%; padding: 14px; margin: 5px 0;
+  border: none; border-radius: 10px; font-size: 0.95em; font-weight: bold;
+  cursor: pointer; transition: transform 0.1s, box-shadow 0.2s; position: relative; overflow: hidden; }
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: linear-gradient(135deg, #00f260, #0575E6); color: white; box-shadow: 0 3px 12px rgba(5,117,230,0.3); }
+.btn-danger { background: linear-gradient(135deg, #ff416c, #ff4b2b); color: white; box-shadow: 0 3px 12px rgba(255,65,108,0.3); }
+.btn-success { background: linear-gradient(135deg, #11998e, #38ef7d); color: white; box-shadow: 0 3px 12px rgba(56,239,125,0.3); }
+.btn-secondary { background: rgba(255,255,255,0.1); color: #ccc; }
+.btn::after { content: ''; position: absolute; inset: 0; background: rgba(255,255,255,0.15);
+  transform: scaleX(0); transform-origin: left; transition: transform 0.3s; }
+.btn:hover::after { transform: scaleX(1); }
+input[type=text], select { width: 100%; padding: 14px; border-radius: 10px; border: 2px solid #333;
+  background: rgba(0,0,0,0.4); color: white; font-size: 1.05em; margin: 6px 0; }
+input:focus { border-color: #0575E6; outline: none; box-shadow: 0 0 8px rgba(5,117,230,0.3); }
+.problem-box { text-align: center; padding: 12px; margin: 8px 0; border-radius: 10px;
+  background: rgba(50,50,100,0.2); border: 1px solid rgba(100,100,200,0.2); }
+.problem-cat { font-size: 0.75em; color: #82b1ff; margin-bottom: 4px; }
+.problem-q { font-size: 1.3em; font-weight: bold; }
+.code-block { background: rgba(0,0,0,0.5); border-radius: 8px; padding: 10px; margin: 6px 0;
+  font-family: 'Courier New', monospace; font-size: 1em; color: #80cbc4; border: 1px solid rgba(128,203,196,0.2); }
+.shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0; }
+.shop-item { background: rgba(255,255,255,0.06); border-radius: 8px; padding: 10px; text-align: center;
+  border: 1px solid rgba(255,255,255,0.08); transition: transform 0.2s; }
+.shop-item:active { transform: scale(0.95); }
+.shop-item-name { font-size: 0.8em; margin-bottom: 2px; }
+.shop-item-price { font-size: 0.7em; color: #ffd54f; }
+.start-panel { text-align: center; padding: 20px 10px; }
+.start-panel h2 { font-size: 1.2em; margin-bottom: 10px; color: #80cbc4; }
+.start-panel p { font-size: 0.85em; color: #999; line-height: 1.5; margin-bottom: 12px; }
+.gameover-panel { text-align: center; padding: 30px 10px; }
+.gameover-panel h2 { font-size: 1.4em; color: #ff5252; margin-bottom: 10px; }
+.gameover-panel p { font-size: 0.85em; color: #999; margin: 4px 0; }
+.victory-panel { text-align: center; padding: 20px 10px; }
+.victory-panel h2 { font-size: 1.3em; color: #ffd54f; margin-bottom: 8px; }
+.victory-panel p { font-size: 0.85em; color: #b0bec5; margin: 3px 0; }
+.levelup-burst { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  font-size: 2em; font-weight: bold; color: #ce93d8; z-index: 20; pointer-events: none;
+  animation: levelup-burst-anim 1s ease-out forwards; }
+@keyframes levelup-burst-anim { 0% { transform: translate(-50%,-50%) scale(0); opacity: 0; }
+  30% { transform: translate(-50%,-50%) scale(1.5); opacity: 1; }
+  100% { transform: translate(-50%,-100%) scale(1); opacity: 0; } }
+.particle { position: absolute; border-radius: 50%; pointer-events: none; z-index: 8; }
+</style>
+</head>
+<body>
+<div id="screen-shake">
+<div id="game">
+  <div class="game-bg">
+    <div class="crystal c1"></div><div class="crystal c2"></div>
+    <div class="crystal c3"></div><div class="crystal c4"></div>
+    <div class="crystal c5"></div>
+  </div>
+  <div class="flash-overlay" id="flash"></div>
+  <div id="header">
+    <h1>CodeQuest</h1>
+    <div class="subtitle">The Crystal Caverns</div>
+  </div>
+  <div id="stats-bar"></div>
+  <div id="hp-container"><div class="hp-bar-bg"><div class="hp-bar-fill" id="hp-fill" style="width:100%"></div></div></div>
+  <div id="content"></div>
+</div>
+</div>
+<script>
+let SID = null;
+let state = null;
+let lastHP = 100;
+let lastMonsterHP = 0;
+let particles = [];
+
+async function api(action, params = {}) {
+  const body = { action, sid: SID, ...params };
+  try {
+    const res = await fetch('/api', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (data.sid) SID = data.sid;
+    if (data.state) {
+      let prev = state;
+      state = data.state;
+      onStateChange(prev, state);
+    }
+    render();
+  } catch(e) {
+    console.error('API error:', e);
+  }
+}
+
+function onStateChange(prev, curr) {
+  if (!prev) { lastHP = curr.hp; return; }
+  // HP damage
+  if (curr.hp < lastHP) {
+    showFlash('flash');
+    shakeScreen();
+    showDamage('.player-sprite', curr.hp < lastHP ? lastHP - curr.hp : 0, 'player');
+    document.querySelector('.player-sprite')?.classList.add('hit');
+    setTimeout(() => document.querySelector('.player-sprite')?.classList.remove('hit'), 400);
+  }
+  // Monster damage
+  if (prev.monster && curr.monster && curr.monster.hp < (prev.monster?.hp || lastMonsterHP)) {
+    let dmg = (prev.monster?.hp || lastMonsterHP) - curr.monster.hp;
+    showDamage('.monster-sprite', dmg, 'monster');
+    document.querySelector('.monster-sprite')?.classList.add('hit');
+    setTimeout(() => document.querySelector('.monster-sprite')?.classList.remove('hit'), 400);
+    spawnParticles();
+  }
+  // Level up
+  if (curr.level > (prev?.level || 1)) {
+    showFlash('flash-purple');
+    showLevelupBurst(curr.level);
+    flashStatChip('level');
+  }
+  // Treasure
+  if (curr.message_type === 'treasure') showFlash('flash-gold');
+  // Victory
+  if (curr.message_type === 'victory' && curr.mode !== 'boss') showFlash('flash-gold');
+  // Mode changed to battle
+  if (curr.mode === 'battle' || curr.mode === 'boss') lastMonsterHP = curr.monster?.hp || 0;
+  lastHP = curr.hp;
+  if (curr.monster) lastMonsterHP = curr.monster.hp;
+}
+
+function showFlash(cls) {
+  const f = document.getElementById('flash');
+  f.className = 'flash-overlay ' + cls;
+  setTimeout(() => f.className = 'flash-overlay', 500);
+}
+
+function shakeScreen() {
+  const s = document.getElementById('screen-shake');
+  s.classList.add('shake');
+  setTimeout(() => s.classList.remove('shake'), 400);
+}
+
+function showDamage(selector, amount, type) {
+  if (amount <= 0) return;
+  const el = document.querySelector(selector);
+  if (!el) return;
+  const arena = document.getElementById('battle-arena');
+  const rect = el.getBoundingClientRect();
+  const aRect = arena.getBoundingClientRect();
+  const x = rect.left - aRect.left + rect.width / 2 - 10;
+  const y = rect.top - aRect.top - 5;
+  const d = document.createElement('div');
+  d.className = 'dmg-num ' + type;
+  d.textContent = '-' + amount;
+  d.style.left = x + 'px';
+  d.style.top = y + 'px';
+  arena.appendChild(d);
+  setTimeout(() => d.remove(), 1000);
+}
+
+function showLevelupBurst(level) {
+  const g = document.getElementById('game');
+  const b = document.createElement('div');
+  b.className = 'levelup-burst';
+  b.textContent = 'LEVEL ' + level + '!';
+  g.appendChild(b);
+  setTimeout(() => b.remove(), 1000);
+}
+
+function flashStatChip(name) {
+  const chips = document.querySelectorAll('.stat-chip');
+  chips.forEach(c => { if (c.dataset.stat === name) { c.classList.add('flash'); setTimeout(() => c.classList.remove('flash'), 500); } });
+}
+
+function spawnParticles() {
+  const arena = document.getElementById('battle-arena');
+  if (!arena) return;
+  const m = document.querySelector('.monster-sprite');
+  if (!m) return;
+  const rect = m.getBoundingClientRect();
+  const aRect = arena.getBoundingClientRect();
+  const cx = rect.left - aRect.left + rect.width / 2;
+  const cy = rect.top - aRect.top + rect.height / 2;
+  const colors = ['#ff5252', '#ffd54f', '#ff8a80', '#ff416c'];
+  for (let i = 0; i < 12; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = 4 + Math.random() * 6;
+    p.style.width = size + 'px'; p.style.height = size + 'px';
+    p.style.left = cx + 'px'; p.style.top = cy + 'px';
+    p.style.background = colors[Math.floor(Math.random() * colors.length)];
+    p.style.boxShadow = '0 0 6px ' + p.style.background;
+    arena.appendChild(p);
+    const angle = (Math.PI * 2 * i) / 12;
+    const dist = 30 + Math.random() * 40;
+    const dx = Math.cos(angle) * dist;
+    const dy = Math.sin(angle) * dist;
+    p.animate([
+      { transform: 'translate(0,0) scale(1)', opacity: 1 },
+      { transform: `translate(${dx}px,${dy}px) scale(0)`, opacity: 0 }
+    ], { duration: 600, easing: 'ease-out' });
+    setTimeout(() => p.remove(), 600);
+  }
+}
+
+function hpClass(pct) {
+  if (pct > 50) return '';
+  if (pct > 25) return 'mid';
+  return 'low';
+}
+
+function render() {
+  const c = document.getElementById('content');
+  if (!state) {
+    c.innerHTML = `
+      <div class="start-panel">
+        <h2>Start Your Adventure</h2>
+        <p>Enter the Crystal Caverns, battle monsters with math, solve coding puzzles, and claim the Knowledge Crystal!</p>
+        <input type="text" id="name" placeholder="Your hero name" value="">
+        <select id="diff">
+          <option value="easy">Adventurer (ages 8-10)</option>
+          <option value="normal" selected>Hero (ages 10-13)</option>
+          <option value="hard">Legend (ages 13-15)</option>
+        </select>
+        <button class="btn btn-primary" onclick="api('start',{name:document.getElementById('name').value||'Hero',difficulty:document.getElementById('diff').value})">Begin Adventure</button>
+      </div>`;
+    return;
+  }
+
+  // Stats bar
+  const sb = document.getElementById('stats-bar');
+  const chips = [
+    ['level', '\u2B50 ' + state.level],
+    ['xp', '\u2728 ' + state.xp + '/' + state.xp_to_next],
+    ['gems', '\uD83D\uDC8E ' + (state.gems || 0)],
+    ['potions', '\uD83E\uDD8A ' + state.potions],
+    ['attack', '\u2694\uFE0F ' + state.attack],
+    ['streak', '\uD83D\uDD25 ' + state.streak + ' (best:' + state.best_streak + ')'],
+    ['rooms', '\uD83D\uDDC4\uFE0F ' + (state.rooms_cleared || 0)],
+    ['battles', '\uD83C\uDF96\uFE0F ' + (state.battles_won || 0)]
+  ];
+  sb.innerHTML = chips.map(([k, v]) => `<span class="stat-chip" data-stat="${k}">${v}</span>`).join('');
+
+  // HP bar
+  const hpPct = (state.hp / state.max_hp) * 100;
+  const hpFill = document.getElementById('hp-fill');
+  hpFill.style.width = Math.max(0, hpPct) + '%';
+  hpFill.className = 'hp-bar-fill ' + hpClass(hpPct);
+
+  let html = '';
+
+  // Message
+  if (state.message) {
+    html += `<div class="msg msg-${state.message_type}">${state.message}</div>`;
+  }
+
+  // Story
+  if (state.mode === 'explore' && state.rooms_cleared < 3) {
+    const stories = STORIES_JSON_PLACEHOLDER;
+    const ss = stories.find(s => s.stage === state.story_stage);
+    if (ss) {
+      html += `<div class="story-box"><div class="story-title-s">${ss.title}</div><div class="story-text">${ss.text}</div></div>`;
+    }
+  }
+
+  // Battle arena (always in DOM during battle, hidden otherwise)
+  if (state.mode === 'battle' || state.mode === 'boss') {
+    const m = state.monster;
+    const mPct = (m.hp / m.max_hp) * 100;
+    html += `<div id="battle-arena" class="active">
+      <div class="monster-info">
+        <div class="monster-name">${m.emoji} ${m.name} ${state.mode === 'boss' ? '\uD83D\uDC51' : ''}</div>
+        <div class="monster-hp-bg"><div class="monster-hp-fill" style="width:${Math.max(0,mPct)}%"></div></div>
+      </div>
+      <canvas id="battle-canvas"></canvas>
+      <div class="player-sprite">\uD83E\uDDDD</div>
+      <div class="monster-sprite">${m.emoji}</div>
+    </div>`;
+  } else {
+    html += `<div id="battle-arena"></div>`;
+  }
+
+  // Game modes
+  if (state.mode === 'explore' || state.mode === 'shop' || state.mode === 'rest' || state.mode === 'treasure') {
+    if (state.mode === 'shop') {
+      html += `<div>
+        <div style="text-align:center;font-size:0.9em;color:#80cbc4;margin:4px">\uD83D\uDED2 Shop</div>
+        <div class="shop-grid">
+          <div class="shop-item" onclick="doShop('1')"><div class="shop-item-name">\uD83E\uDD8A Potion</div><div class="shop-item-price">10\uD83D\uDC8E</div></div>
+          <div class="shop-item" onclick="doShop('2')"><div class="shop-item-name">\u2694\uFE0F ATK +3</div><div class="shop-item-price">20\uD83D\uDC8E</div></div>
+          <div class="shop-item" onclick="doShop('3')"><div class="shop-item-name">\u2764\uFE0F MaxHP +15</div><div class="shop-item-price">30\uD83D\uDC8E</div></div>
+          <div class="shop-item" onclick="doShop('4')" style="background:rgba(100,100,100,0.1)"><div class="shop-item-name">\uD83D\uDEAA Leave</div><div class="shop-item-price">Free</div></div>
+        </div>
+      </div>`;
+    }
+    if (state.story_stage >= 5) {
+      html += `<div class="victory-panel">
+        <h2>\uD83D\uDC51 CHAMPION!</h2>
+        <p>You conquered the Crystal Caverns!</p>
+        <p>Battles: ${state.battles_won} \u2022 Puzzles: ${state.puzzles_solved} \u2022 Math: ${state.math_solved}</p>
+        <p>Best Streak: ${state.best_streak}</p>
+        <button class="btn btn-primary" onclick="SID=null;state=null;render()">Play Again</button>
+      </div>`;
+    } else {
+      html += `<div style="text-align:center;padding:4px">
+        <div style="font-size:0.75em;color:#666;margin-bottom:4px">\uD83D\uDCCD Room ${state.rooms_cleared + 1}</div>
+        <button class="btn btn-primary" onclick="api('explore')">\uD83D\uDDFA\uFE0F Explore Next Room</button>
+        <button class="btn btn-success" onclick="api('potion')">\uD83E\uDD8A Use Potion (${state.potions})</button>
+      </div>`;
+    }
+  }
+
+  else if (state.mode === 'battle' || state.mode === 'boss') {
+    const prob = state.current_problem;
+    html += `<div class="problem-box">
+      <div class="problem-cat">${prob.cat}</div>
+      <div class="problem-q">${prob.q}</div>
+      <input type="text" id="answer" placeholder="Your answer..." onkeypress="if(event.key==='Enter')doAnswer()">
+      <button class="btn btn-danger" onclick="doAnswer()">\u2694\uFE0F Attack!</button>
+    </div>`;
+  }
+
+  else if (state.mode === 'puzzle') {
+    const p = state.current_puzzle;
+    html += `<div>
+      <div style="font-size:0.9em;color:#80cbc4;font-weight:bold;text-align:center;margin:4px">\uD83E\uDDE9 Coding Puzzle (Level ${p.level})</div>
+      <p style="font-size:0.85em;text-align:center;margin:4px 0">${p.prompt}</p>
+      <div class="code-block">${p.code}</div>
+      <p style="font-size:0.7em;color:#666;text-align:center">Fill the blank (____)</p>
+      <input type="text" id="answer" placeholder="Fill the blank..." onkeypress="if(event.key==='Enter')doAnswer()">
+      <button class="btn btn-primary" onclick="doAnswer()">\uD83D\uDD13 Submit</button>
+    </div>`;
+  }
+
+  else if (state.mode === 'gameover') {
+    html += `<div class="gameover-panel">
+      <h2>\uD83D\uDC80 Game Over</h2>
+      <p>${state.name} fell in the Crystal Caverns...</p>
+      <p>Level ${state.level} \u2022 Battles: ${state.battles_won} \u2022 Puzzles: ${state.puzzles_solved}</p>
+      <p>Best Streak: ${state.best_streak}</p>
+      <button class="btn btn-primary" onclick="SID=null;state=null;render()">Play Again</button>
+    </div>`;
+  }
+
+  c.innerHTML = html;
+}
+
+function doAnswer() {
+  const val = document.getElementById('answer').value;
+  if (val) api('answer', { answer: val });
+}
+
+function doShop(choice) {
+  api('shop', { choice: choice });
+}
+
+render();
+</script>
+</body>
+</html>
