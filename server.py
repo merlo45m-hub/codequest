@@ -234,6 +234,7 @@ def new_game(name, difficulty):
         "special": "bulwark", "special_ready": True, "special_armed": False, "bulwark_active": False, "regen": 0, "spell_mult": 1.0,
         "fork_right": "",
         "battle_round": 0,
+        "boss_telegraph": 0, "boss_pending_dmg": 0,  # combat lifecycle: 0=idle, 1=windup(active next turn)
         "message": "",
         "message_type": "info",
     }
@@ -382,6 +383,10 @@ def action_answer(g, answer, choice=None):
                 g["message"] = "🔥 STREAK x%d! +%d bonus!" % (g["streak"], bonus)
             else:
                 g["message"] = "✅ Correct! %d damage!" % dmg
+            if g["mode"] == "boss" and g.get("boss_telegraph"):
+                g["boss_telegraph"] = 0
+                g["boss_pending_dmg"] = 0
+                g["message"] = "\U0001F938 DODGE! You answer true and leap aside \u2014 " + g["monster"]["name"] + "'s strike misses! " + g["message"]
             g["monster"]["hp"] -= dmg
             if g["mode"] == "boss" and g["monster"]["hp"] <= 0 and g["story_stage"] < 5:
                 is_final = g["monster"].get("boss_id") == "crystal_titan"
@@ -418,11 +423,24 @@ def action_answer(g, answer, choice=None):
                 check_levelup(g)
                 return g
         else:
-            m_dmg = g["monster"]["atk"] + random.randint(0, 3)
-            g["hp"] -= m_dmg
             g["streak"] = 0
-            g["message"] = f"❌ Wrong! Answer was {prob['a']}. {g['monster']['emoji']} hits you for {m_dmg}!"
-            g["message_type"] = "miss"
+            if g["mode"] == "boss" and g.get("boss_telegraph"):
+                m_dmg = g.get("boss_pending_dmg") or (g["monster"]["atk"] + random.randint(0, 3))
+                g["hp"] -= m_dmg
+                g["boss_telegraph"] = 0
+                g["boss_pending_dmg"] = 0
+                g["message"] = f"\U0001F4A5 You failed to dodge! {g['monster']['emoji']} strikes you for {m_dmg}!"
+                g["message_type"] = "miss"
+            elif g["mode"] == "boss":
+                g["boss_telegraph"] = CONFIG["combat"]["boss_telegraph_turns"]
+                g["boss_pending_dmg"] = g["monster"]["atk"] + random.randint(3, 8)
+                g["message"] = f"\u274c Wrong! Answer was {prob['a']}. {g['monster']['emoji']} winds up a strike \u2014 answer RIGHT next turn to DODGE it!"
+                g["message_type"] = "miss"
+            else:
+                m_dmg = g["monster"]["atk"] + random.randint(0, 3)
+                g["hp"] -= m_dmg
+                g["message"] = f"\u274c Wrong! Answer was {prob['a']}. {g['monster']['emoji']} hits you for {m_dmg}!"
+                g["message_type"] = "miss"
             if g["hp"] <= 0:
                 g["hp"] = 0
                 g["mode"] = "gameover"
