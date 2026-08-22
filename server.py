@@ -82,6 +82,19 @@ def roll_spells(math_cat):
     pool=[sp for sp in SPELLS if sp["name"]!=primary]
     _r.shuffle(pool)
     return [next(sp for sp in SPELLS if sp["name"]==primary)]+pool[:2]
+CLASSES={
+ "mage":    {"name":"Mage","glyph":"X","color":"#8b5cf6","emoji":"*","desc":"Glass cannon. +3 atk, +25% spell dmg. Fragile (80hp). Special OVERLOAD: next spell x2.","hp":80,"atk":13,"spell_mult":1.25,"special":"overload"},
+ "knight":  {"name":"Knight","glyph":"S","color":"#f59e0b","emoji":"#","desc":"Tank. 140hp +1 potion. Special BULWARK: heal 30% + no dmg next hit.","hp":140,"atk":9,"spell_mult":1.0,"special":"bulwark"},
+ "ranger":  {"name":"Ranger","glyph":"R","color":"#22c55e","emoji":"@","desc":"Balanced. +10% spell dmg, extra potion. Special MULTISHOT: hit twice.","hp":110,"atk":11,"spell_mult":1.1,"special":"multishot"},
+ "healer":  {"name":"Healer","glyph":"H","color":"#06b6d4","emoji":"+","desc":"Support. Regen 6hp/turn +1 potion. Special GREAT HEAL: +40% hp.","hp":100,"atk":8,"spell_mult":1.0,"special":"great_heal"},
+}
+SPECIAL_NAMES={"overload":"OVERLOAD","bulwark":"BULWARK","multishot":"MULTISHOT","great_heal":"GREAT HEAL"}
+def apply_class(g,cls):
+    c=CLASSES.get(cls,CLASSES["knight"])
+    g["hero_class"]=cls; g["class_name"]=c["name"]; g["class_color"]=c["color"]; g["class_emoji"]=c["emoji"]
+    g["max_hp"]=c["hp"]; g["hp"]=c["hp"]; g["attack"]=c["atk"]; g["spell_mult"]=c["spell_mult"]
+    g["special"]=c["special"]; g["special_ready"]=True; g["bulwark_active"]=False; g["regen"]=6 if cls=="healer" else 0
+    return g
 def gcd(a, b):
     while b:
         a, b = b, a % b
@@ -164,6 +177,8 @@ def new_game(name, difficulty):
         "boss_phase": 0,
         "last_spell": "",
         "fork_left": "",
+        "hero_class": "knight", "class_name": "Knight", "class_color": "#f59e0b", "class_emoji": "#",
+        "special": "bulwark", "special_ready": True, "special_armed": False, "bulwark_active": False, "regen": 0, "spell_mult": 1.0,
         "fork_right": "",
         "battle_round": 0,
         "message": "",
@@ -190,8 +205,9 @@ def check_levelup(g):
 #  API ACTIONS
 # ═══════════════════════════════════════════════════════════
 
-def action_start(name, difficulty):
+def action_start(name, difficulty, cls="knight"):
     g = new_game(name or "Hero", difficulty or "normal")
+    apply_class(g, cls)
     sid = str(int(time.time() * 1000)) + str(random.randint(0, 999))
     GAMES[sid] = g
     stage = get_story_for_room(0)
@@ -285,7 +301,18 @@ def action_answer(g, answer, choice=None):
     if g["mode"] == "battle" or g["mode"] == "boss":
         prob = g["current_problem"]
         if answer.lower() == prob["a"].lower():
-            dmg = g["attack"] + random.randint(0, 5)
+            base = g["attack"] + random.randint(0, 5)
+            sm = g.get("choices") and g["choices"][int(choice)]["mult"] if (g.get("choices") and choice not in (None,"")) else 1.0
+            sm = sm if sm else 1.0
+            dmg = int(base * sm * g.get("spell_mult",1.0))
+            if g.get("special_armed") and g.get("special_ready") and g.get("special")=="overload":
+                dmg*=2; g["special_ready"]=False; g["message"]="OVERLOAD! Spell x2!"; g["message_type"]="special"
+            elif g.get("special_armed") and g.get("special_ready") and g.get("special")=="bulwark":
+                g["bulwark_active"]=True; g["special_ready"]=False; heal=int(g["max_hp"]*0.3); g["hp"]=min(g["max_hp"],g["hp"]+heal); g["message"]=f"BULWARK! +{heal} HP, braced!"; g["message_type"]="special"
+            elif g.get("special_armed") and g.get("special_ready") and g.get("special")=="multishot":
+                dmg*=2; g["special_ready"]=False; g["message"]="MULTISHOT! Double hit!"; g["message_type"]="special"
+            elif g.get("special_armed") and g.get("special_ready") and g.get("special")=="great_heal":
+                heal=int(g["max_hp"]*0.4); g["hp"]=min(g["max_hp"],g["hp"]+heal); g["special_ready"]=False; g["message"]=f"GREAT HEAL! +{heal} HP!"; g["message_type"]="special"
             ch = g.get("choices")
             if ch and choice is not None:
                 ci = choice
@@ -305,6 +332,7 @@ def action_answer(g, answer, choice=None):
             if g["mode"] == "boss" and g["monster"]["hp"] <= 0 and g["story_stage"] < 5:
                 g["story_stage"] = 5
                 g["mode"] = "explore"
+
                 g["message"] = "The Crystal Titan falls! You are CHAMPION!"
                 g["message_type"] = "win"
                 return g
@@ -431,6 +459,14 @@ def action_shop(g, choice):
         g["message"] = "Not enough gems!"
         return g
     g["mode"] = "explore"
+
+def action_special(g):
+    if not g.get("special_ready"):
+        g["message"]="Special not ready yet!"; g["message_type"]="info"; return g
+    g["special_armed"]=True
+    nm=SPECIAL_NAMES.get(g.get("special"),"SPECIAL")
+    g["message"]=nm+" armed! Answer correctly to unleash it!"; g["message_type"]="special"
+    return g
     g["rooms_cleared"] += 1
     g["message_type"] = "info"
     return g
@@ -1138,6 +1174,9 @@ class GameHandler(BaseHTTPRequestHandler):
                 resp['state'] = g
             elif action == 'potion' and g:
                 g = action_potion(g)
+                resp['state'] = g
+            elif action == 'special' and g:
+                g = action_special(g)
                 resp['state'] = g
             elif action == 'fork' and g:
                 g = action_fork(g, req.get('side', 'left'))

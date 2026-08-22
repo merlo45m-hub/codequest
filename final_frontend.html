@@ -51,6 +51,7 @@ canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rend
 .btn-success{background:linear-gradient(135deg,#11998e,#38ef7d);color:#fff}
 .btn-secondary{background:rgba(255,255,255,0.1);color:#ccc}
 .spell-row{display:flex;gap:6px;margin:4px 0}
+.class-row{display:flex;gap:5px;margin:4px 0;flex-wrap:wrap}.class-btn{flex:1;min-width:64px;border:2px solid #555;border-radius:8px;padding:5px 3px;background:rgba(255,255,255,0.05);text-align:center}.class-btn.sel{background:rgba(255,255,255,0.18);box-shadow:0 0 8px rgba(255,213,79,0.5)}.btn-special{background:rgba(255,213,79,0.12)}
 .spell-btn{flex:1;border:2px solid #555;border-radius:10px;padding:5px 3px;background:rgba(255,255,255,0.05);text-align:center;cursor:pointer;transition:transform .1s}
 .spell-btn.sel{transform:scale(1.04);box-shadow:0 0 10px rgba(255,255,255,0.3)}
 .math-box{text-align:center;margin:6px 0}
@@ -92,6 +93,7 @@ let pHitFlash=0;
 let badges={};let badgeMsg='';let badgeMsgLife=0;
 let animTime=0,gameMode='title';
 let selDiff='normal';
+let selClass='knight';
 let bestRun={rooms:0,level:1};
 let savedSID=null;
 let settings={music:false,sfx:true,reducedMotion:false};
@@ -1026,7 +1028,7 @@ function render(){
 <div class="diff-btn ${selDiff==='normal'?'sel':''}" onclick="selDiff='normal';render()">Hero<br>10-13</div>
 <div class="diff-btn ${selDiff==='hard'?'sel':''}" onclick="selDiff='hard';render()">Legend<br>13-15</div>
 </div>
-<button class="btn btn-begin" onclick="confirmNewGame()">⚔️ Begin Adventure</button>
+<div style="margin:5px 0;font-size:0.78em;color:#bbb">Choose your hero:</div><div class="class-row"><div class="class-btn clickable ${selClass==='mage'?'sel':''}" style="border-color:#8b5cf6" onclick="selClass='mage';render()"><div style="font-size:1.2em">🗠</div><div style="font-weight:bold;color:#8b5cf6">Mage</div><div style="font-size:0.6em;opacity:0.75">Glass cannon · OVERLOAD</div></div><div class="class-btn clickable ${selClass==='knight'?'sel':''}" style="border-color:#f59e0b" onclick="selClass='knight';render()"><div style="font-size:1.2em">🛡</div><div style="font-weight:bold;color:#f59e0b">Knight</div><div style="font-size:0.6em;opacity:0.75">Tank · BULWARK</div></div><div class="class-btn clickable ${selClass==='ranger'?'sel':''}" style="border-color:#22c55e" onclick="selClass='ranger';render()"><div style="font-size:1.2em">🏿</div><div style="font-weight:bold;color:#22c55e">Ranger</div><div style="font-size:0.6em;opacity:0.75">Balanced · MULTISHOT</div></div><div class="class-btn clickable ${selClass==='healer'?'sel':''}" style="border-color:#06b6d4" onclick="selClass='healer';render()"><div style="font-size:1.2em">🌡</div><div style="font-weight:bold;color:#06b6d4">Healer</div><div style="font-size:0.6em;opacity:0.75">Support · GREAT HEAL</div></div></div><button class="btn btn-begin" onclick="confirmNewGame()">⚔️ Begin Adventure</button>
 ${hasLocalSave()?'<div style="margin-top:6px"><button class="btn btn-success clickable" style="font-size:0.85em;width:100%" onclick="continueGame()">▶️ Continue (Room '+localSaveRoom()+')</button></div>':''}${savedSID?'<div style="margin-top:4px"><button class="btn btn-secondary clickable" style="font-size:0.8em;width:100%" onclick="resumeGame()">↺ Resume Server Run</button></div>':''}
 <div style="margin-top:6px;display:flex;gap:5px"><button class="btn btn-secondary clickable" style="font-size:0.78em;flex:1" onclick="toggleMusic()">${musicOn?'🔊 Music: On':'🔇 Music: Off'}</button><button class="btn btn-secondary clickable" style="font-size:0.78em;flex:1" onclick="showSettings=true;render()">⚙️ Settings</button></div>
 <div style="margin-top:6px"><button class="btn btn-info clickable" style="font-size:0.78em;width:100%" onclick="showHelp=true;render()">❓ How to Play</button></div>
@@ -1079,6 +1081,10 @@ ${hasLocalSave()?'<div style="margin-top:6px"><button class="btn btn-success cli
       panel+=`<div class="spell-row">`;
       state.choices.forEach((sp,i)=>{panel+=`<div class="spell-btn clickable ${selSpell===i?'sel':''}" style="border-color:${sp.color};${selSpell===i?'background:'+sp.color+'33':''}" onclick="selSpell=${i};render()"><div style="font-weight:bold;color:${sp.color}">${sp.name}</div><div style="font-size:0.62em;opacity:0.8">x${sp.mult} dmg</div><div style="font-size:0.58em;opacity:0.6">${sp.desc}</div></div>`;});
       panel+=`</div>`;
+      if(state.special_ready){
+        const SNAME={overload:"⚡ OVERLOAD",bulwark:"🛡 BULWARK",multishot:"🏿 MULTISHOT",great_heal:"🌡 GREAT HEAL"}[state.special]||"SPECIAL";
+        panel+=`<button class="btn btn-special clickable" onclick="api('special')" style="margin:4px 0;width:100%;font-weight:bold;color:#ffd54f;border-color:#ffd54f">✦ ${SNAME} READY</button>`;
+      }
     }
     panel+=`<div class="math-box"><div class="math-cat">${p.cat}</div><div class="math-q">${p.q}</div></div>`;
     panel+=`<input type="text" id="answer" placeholder="Your answer..." onkeypress="if(event.key==='Enter')doAnswer()">`;
@@ -1145,7 +1151,7 @@ function confirmNewGame(){
     const r=confirm('Start a NEW adventure? This erases your saved progress (Room '+localSaveRoom()+').');
     if(!r) return;
   }
-  api('start',{name:nm,difficulty:selDiff});
+  api('start',{name:nm,difficulty:selDiff,class:selClass});
 }
 function autoResumeIfSaved(){
   try{ if(hasLocalSave() && gameMode==='title'){ continueGame(); } }catch(e){console.error(e);}
