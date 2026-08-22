@@ -261,6 +261,7 @@ let levelUpText="";
 let levelUpTextLife=0;
 let hitStop=0;
 let victoryTime=0;
+let victoryTrig=0;
 let streakFire=[];
 let goldRain=[];
 let attackTrail=[];
@@ -681,23 +682,28 @@ function drawBossIntro(){
 }
 function drawVictory(){
   if(victoryTime<=0)return;
-  // golden glow
-  ctx.globalAlpha=victoryTime*0.5;ctx.fillStyle='#ffd700';
-  const g=ctx.createRadialGradient(W/2,H*0.4,10,W/2,H*0.4,W*0.6);g.addColorStop(0,'rgba(255,215,0,0.6)');g.addColorStop(1,'rgba(255,215,0,0)');
-  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;
-  // floating Knowledge Crystal
-  const cy=H*0.4+Math.sin(animTime*2)*8;
-  ctx.save();ctx.translate(W/2,cy);ctx.rotate(animTime*0.6);
-  const cg=ctx.createLinearGradient(0,-26,0,26);cg.addColorStop(0,'#aef');cg.addColorStop(0.5,'#4dd0e1');cg.addColorStop(1,'#1565c0');
-  ctx.fillStyle=cg;ctx.shadowColor='#4dd0e1';ctx.shadowBlur=30;
-  ctx.beginPath();ctx.moveTo(0,-26);ctx.lineTo(16,-6);ctx.lineTo(10,26);ctx.lineTo(-10,26);ctx.lineTo(-16,-6);ctx.closePath();ctx.fill();
-  ctx.shadowBlur=0;ctx.restore();
-  // banner
-  ctx.globalAlpha=Math.min(1,victoryTime*1.5);
-  ctx.textAlign='center';ctx.fillStyle='#ffd54f';ctx.font='bold 30px system-ui';
-  ctx.strokeStyle='#000';ctx.lineWidth=5;ctx.strokeText('CHAMPION!',W/2,H*0.7);ctx.fillText('CHAMPION!',W/2,H*0.7);
-  ctx.font='bold 13px system-ui';ctx.fillStyle='#fff';
-  ctx.strokeText('You claimed the Knowledge Crystal',W/2,H*0.7+26);ctx.fillText('You claimed the Knowledge Crystal',W/2,H*0.7+26);
+  const t=1-victoryTime;
+  ctx.globalAlpha=Math.min(0.55,victoryTime*0.7);ctx.fillStyle='#0a0420';ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;
+  const glow=0.3+0.4*Math.sin(Math.min(1,t*2)*Math.PI);
+  const g=ctx.createRadialGradient(W/2,H*0.42,10,W/2,H*0.42,W*0.65);g.addColorStop(0,'rgba(255,215,0,'+(0.5*glow)+')');g.addColorStop(1,'rgba(255,215,0,0)');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  const bossX=W*0.72, bossY=H*0.45, heroX=W*0.25, heroY=H*0.5;
+  let cx,cy,scale,alpha;
+  if(t<0.35){const k=t/0.35; cx=bossX; cy=bossY; scale=0.2+k*0.9; alpha=k;}
+  else{const k=(t-0.35)/0.65; cx=bossX+(heroX-bossX)*k; cy=bossY+(heroY-bossY)*k - Math.sin(k*Math.PI)*30; scale=1.1-0.2*k; alpha=1;}
+  cy+=Math.sin(animTime*2)*4;
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(animTime*0.6);ctx.globalAlpha=alpha;
+  const cg=ctx.createLinearGradient(0,-30*scale,0,30*scale);cg.addColorStop(0,'#aef');cg.addColorStop(0.5,'#4dd0e1');cg.addColorStop(1,'#1565c0');
+  ctx.fillStyle=cg;ctx.shadowColor='#4dd0e1';ctx.shadowBlur=30*scale;
+  ctx.beginPath();ctx.moveTo(0,-30*scale);ctx.lineTo(18*scale,-7*scale);ctx.lineTo(11*scale,30*scale);ctx.lineTo(-11*scale,30*scale);ctx.lineTo(-18*scale,-7*scale);ctx.closePath();ctx.fill();
+  ctx.shadowBlur=0;
+  ctx.fillStyle='rgba(255,255,255,'+(0.5+0.4*Math.sin(animTime*5))+')';ctx.beginPath();ctx.arc(0,0,5*scale,0,Math.PI*2);ctx.fill();
+  ctx.restore();
+  ctx.save();ctx.globalAlpha=0.8;drawPlayer(heroX,heroY,1.6,false,false,state?state.hero_class:null);ctx.restore();
+  const ba=Math.max(0,Math.min(1,(t-0.5)*2));
+  if(ba>0){ctx.globalAlpha=ba;ctx.textAlign='center';ctx.fillStyle='#ffd54f';ctx.font='bold 30px system-ui';
+    ctx.strokeStyle='#000';ctx.lineWidth=5;ctx.strokeText('CHAMPION!',W/2,H*0.22);ctx.fillText('CHAMPION!',W/2,H*0.22);
+    ctx.font='bold 13px system-ui';ctx.fillStyle='#fff';ctx.strokeText('You claimed the Knowledge Crystal',W/2,H*0.22+26);ctx.fillText('You claimed the Knowledge Crystal',W/2,H*0.22+26);}
   ctx.globalAlpha=1;
 }
 
@@ -1158,7 +1164,7 @@ function onStateChange(prev,curr){
   if(curr.message_type==='treasure'){flashColor='#ffd700';flashAlpha=0.3;spawnParticles(W*0.5,H*0.4,'#ffd54f',20);sfxTreasure();chestOpen=true;chestAnim=0;for(let i=0;i<25;i++){goldRain.push({x:W/2+(Math.random()-0.5)*80,y:H*0.35,vy:-1-Math.random()*5,size:2+Math.random()*4,color:'#ffd700',life:1})}}
   // Victory
   if(curr.message_type==='victory'&&curr.mode!=='boss'){flashColor='#ffd700';flashAlpha=0.3;sfxCorrect()}
-  if(curr.story_stage>=5&&prev.story_stage<5){victoryTime=1;flashColor='#ffd700';flashAlpha=0.6;for(let i=0;i<40;i++)spawnParticles(W*0.5,H*0.45,'#ffd54f',40);sfxVictory();hitStop=8}
+  if(curr.story_stage>=5&&prev.story_stage<5){victoryTime=1;victoryTrig=1;flashColor='#ffd700';flashAlpha=0.6;for(let i=0;i<60;i++)spawnParticles(W*0.72,H*0.45,'#ce93d8',60);for(let i=0;i<30;i++)spawnParticles(W*0.72,H*0.45,'#fff',30);spawnShockwave(W*0.72,H*0.45,'#e8a6f0');spawnShockwave(W*0.72,H*0.45,'#fff');sfxVictory();hitStop=10;shakeTime=20;shakeMag=14}
   // Correct answer
   if(prev.mode==='battle'&&curr.mode==='explore'&&curr.message_type==='victory'){sfxVictory()}
   // Wrong answer
