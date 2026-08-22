@@ -104,6 +104,11 @@ CONFIG = {
         "boss_telegraph_turns": 1,
         "boss_active_frames": 1,
     },
+    "combo": {
+        "threshold": 3,
+        "charge_mult": 1.6,
+        "max_charges": 3,
+    },
     "pools": {"max_particles": 400, "max_projectiles": 64, "max_shockwaves": 24},
     "boss": {"phase2_ratio": 0.50, "phase3_ratio": 0.25},
 }
@@ -252,6 +257,7 @@ def new_game(name, difficulty):
         "fork_right": "",
         "battle_round": 0,
         "boss_telegraph": 0, "boss_pending_dmg": 0, "current_move": None,  # combat lifecycle: windup + signature move tracking
+        "charges": 0, "combo_threshold": CONFIG["combo"]["threshold"], "charged_this_hit": False,  # INTERACTIVE MECHANIC: answer-combo -> charged spell
         "message": "",
         "message_type": "info",
     }
@@ -400,6 +406,15 @@ def action_answer(g, answer, choice=None):
                 g["message"] = "🔥 STREAK x%d! +%d bonus!" % (g["streak"], bonus)
             else:
                 g["message"] = "✅ Correct! %d damage!" % dmg
+            # ANSWER COMBO -> CHARGED SPELL (every `threshold` consecutive corrects)
+            g["charges"] = min(CONFIG["combo"]["max_charges"], g.get("charges", 0) + 1)
+            g["charged_this_hit"] = False
+            if g["charges"] >= CONFIG["combo"]["threshold"]:
+                g["charges"] = 0
+                cm = CONFIG["combo"]["charge_mult"]
+                dmg = int(round(dmg * cm))
+                g["charged_this_hit"] = True
+                g["message"] = "\u26a1 CHARGED SPELL! x%d \u2014 %d dmg!" % (int(cm), dmg)
             if g["mode"] == "boss" and g.get("boss_telegraph"):
                 g["boss_telegraph"] = 0
                 g["boss_pending_dmg"] = 0
@@ -441,6 +456,8 @@ def action_answer(g, answer, choice=None):
                 return g
         else:
             g["streak"] = 0
+            g["charges"] = 0
+            g["charged_this_hit"] = False
             if g["mode"] == "boss" and g.get("boss_telegraph"):
                 m_dmg = g.get("boss_pending_dmg") or (g["monster"]["atk"] + random.randint(0, 3))
                 g["hp"] -= m_dmg

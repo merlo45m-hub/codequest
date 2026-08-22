@@ -1161,6 +1161,7 @@ function onStateChange(prev,curr){
     const _st=(state&&state.choices)?state.choices[selSpell||0]:null;
     castSpell(_st?_st.color:(curr.streak>=3?'#ff416c':'#4dd0e1'), _st?_st.type:'arcane', _st?_st.mult:1);
     if(curr.streak>=3){spawnShockwave(W*0.72,H*0.42,'#ff416c');shakeTime=14;shakeMag=10;spawnCombo('STREAK x'+curr.streak+'!',curr.streak>=5?'#ff416c':'#ff9800');}
+    if(curr.charged_this_hit){spawnShockwave(W*0.72,H*0.42,'#ffd54f');spawnShockwave(W*0.72,H*0.42,'#fff');flashColor='#ffd54f';flashAlpha=0.5;shakeTime=Math.max(shakeTime,12);shakeMag=Math.max(shakeMag,9);spawnCombo('\u26a1 CHARGED!',curr.streak>=5?'#ff416c':'#ffd54f');}
     for(let i=0;i<8;i++)attackTrail.push({x:W*0.25+i*12,y:H*0.45,life:1,color:curr.streak>=3?'#ff416c':'#4dd0e1'});
     for(let i=0;i<12;i++)spearTrails.push({x:W*0.25+(i*18),y:H*0.42+Math.sin(i)*5,life:1,color:'#4dd0e1'});
   }
@@ -1231,6 +1232,15 @@ ${hasLocalSave()?'<div style="margin-top:6px"><button class="btn btn-success cli
   const hpPct=(state.hp/state.max_hp)*100;
   const hpCls=hpPct>50?'':hpPct>25?'mid':'low';
   const xpPct=Math.max(0,Math.min(100,(state.xp/state.xp_to_next)*100));
+function chargeChipHTML(state){
+  const ch=state.charges||0, th=state.combo_threshold||3;
+  let pips="";
+  for(let i=0;i<th;i++){
+    const on=i<ch;
+    pips+="<span style=\"display:inline-block;width:9px;height:9px;border-radius:50%;margin:0 1.5px;background:"+(on?"#ffd54f":"rgba(255,255,255,0.18)")+";box-shadow:"+(on?"0 0 6px #ffd54f":"none")+";\"></span>";
+  }
+  return "<span class=\"chip\" style=\"background:rgba(255,213,79,0.18);color:#ffd54f\">\u26a1"+pips+"</span>";
+}
   let hud=`<div class="hud clickable">`;
   hud+=`<span class="chip lv">⭐${state.level}</span>`;
   hud+=`<span class="chip" style="background:rgba(124,77,255,0.5)">📍 ${zoneName}</span>`;
@@ -1238,6 +1248,7 @@ ${hasLocalSave()?'<div style="margin-top:6px"><button class="btn btn-success cli
   hud+=`<span class="chip">🧪${state.potions}</span>`;
   hud+=`<span class="chip">💎${state.gems||0}</span>`;
   if(state.streak>0)hud+=`<span class="chip" style="background:rgba(255,65,108,0.5)">🔥${state.streak}</span>`;
+  hud+=chargeChipHTML(state);
   hud+=`<span class="chip clickable" style="background:rgba(124,77,255,0.4)" onclick="toggleMusic()">${musicOn?'🔊':'🔇'}</span>`;
   hud+=`<span class="chip" style="background:rgba(255,215,0,0.25);color:#ffd54f">🏆 R${bestRun.rooms}</span>`;
   hud+=`</div>`;
