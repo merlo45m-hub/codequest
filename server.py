@@ -68,12 +68,12 @@ DIFFICULTY = {
 }
 
 SPELLS = [
-  {"name":"Spark Bolt","color":"#4dd0e1","mult":1.0,"desc":"steady","cat":"Arithmetic"},
-  {"name":"Flame Burst","color":"#ff7043","mult":1.6,"desc":"big hit","cat":"Multiplication"},
-  {"name":"Frost Lance","color":"#4dd0e1","mult":1.25,"desc":"strong","cat":"Division"},
-  {"name":"Stone Smash","color":"#a1887f","mult":1.4,"desc":"heavy","cat":"Addition"},
-  {"name":"Venom Spray","color":"#9ccc65","mult":1.15,"desc":"toxic","cat":"Subtraction"},
-  {"name":"Shadow Strike","color":"#ab47bc","mult":1.8,"desc":"risky!","cat":"Power"},
+  {"name":"Spark Bolt","color":"#4dd0e1","mult":1.0,"desc":"steady","cat":"Arithmetic","type":"arcane"},
+  {"name":"Flame Burst","color":"#ff7043","mult":1.6,"desc":"big hit","cat":"Multiplication","type":"fire"},
+  {"name":"Frost Lance","color":"#4dd0e1","mult":1.25,"desc":"strong","cat":"Division","type":"ice"},
+  {"name":"Stone Smash","color":"#a1887f","mult":1.4,"desc":"heavy","cat":"Addition","type":"arcane"},
+  {"name":"Venom Spray","color":"#9ccc65","mult":1.15,"desc":"toxic","cat":"Subtraction","type":"arcane"},
+  {"name":"Shadow Strike","color":"#ab47bc","mult":1.8,"desc":"risky!","cat":"Power","type":"lightning"},
 ]
 def roll_spells(math_cat):
     import random as _r

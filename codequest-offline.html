@@ -108,12 +108,12 @@ function gcd(a,b){while(b){let t=a%b;a=b;b=t;}return a;}
 function rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
 function pick(x){return x[Math.floor(Math.random()*x.length)];}
 const SPELLS=[
- {name:"Spark Bolt",color:"#4dd0e1",mult:1.0,desc:"steady",cat:"Arithmetic"},
- {name:"Flame Burst",color:"#ff7043",mult:1.6,desc:"big hit",cat:"Multiplication"},
- {name:"Frost Lance",color:"#4dd0e1",mult:1.25,desc:"strong",cat:"Division"},
- {name:"Stone Smash",color:"#a1887f",mult:1.4,desc:"heavy",cat:"Addition"},
- {name:"Venom Spray",color:"#9ccc65",mult:1.15,desc:"toxic",cat:"Subtraction"},
- {name:"Shadow Strike",color:"#ab47bc",mult:1.8,desc:"risky!",cat:"Power"}
+ {name:"Spark Bolt",color:"#4dd0e1",mult:1.0,desc:"steady",cat:"Arithmetic",type:"arcane"},
+ {name:"Flame Burst",color:"#ff7043",mult:1.6,desc:"big hit",cat:"Multiplication",type:"fire"},
+ {name:"Frost Lance",color:"#4dd0e1",mult:1.25,desc:"strong",cat:"Division",type:"ice"},
+ {name:"Stone Smash",color:"#a1887f",mult:1.4,desc:"heavy",cat:"Addition",type:"arcane"},
+ {name:"Venom Spray",color:"#9ccc65",mult:1.15,desc:"toxic",cat:"Subtraction",type:"arcane"},
+ {name:"Shadow Strike",color:"#ab47bc",mult:1.8,desc:"risky!",cat:"Power",type:"lightning"}
 ];
 function roll_spells(mathCat){
  const map={Arithmetic:"Spark Bolt",Multiplication:"Flame Burst",Division:"Frost Lance",Addition:"Stone Smash",Subtraction:"Venom Spray",Power:"Shadow Strike"};
@@ -984,21 +984,48 @@ function drawSwoosh(){
 }
 // === COMBAT SPECTACLE: spell projectiles + shockwave finishers ===
 let spells=[], shockwaves=[];
-function castSpell(color){
-  // hero at left -> monster at right; travel + burst on arrival
-  spells.push({x:W*0.25,y:H*0.45,tx:W*0.72,ty:H*0.42,life:1,color:color||'#4dd0e1'});
+function spellBurst(x,y,color,type){
+  if(type==='fire'){
+    for(let i=0;i<22;i++){const a=-Math.PI/2+(Math.random()-0.5)*1.6;const sp=2+Math.random()*5;particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-1.5,life:1,color:Math.random()<0.5?'#ff7043':'#ffd54f',size:2+Math.random()*4});}
+    spawnShockwave(x,y,color);
+  }else if(type==='ice'){
+    for(let i=0;i<16;i++){const a=Math.random()*Math.PI*2;const sp=3+Math.random()*4;particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,color:'#aef',size:2+Math.random()*3});}
+    spawnShockwave(x,y,color);shockwaves.push({x,y,life:1,color:'#81d4fa'});
+  }else if(type==='lightning'){
+    for(let i=0;i<10;i++){particles.push({x:x+(Math.random()-0.5)*30,y:y+(Math.random()-0.5)*30,vx:(Math.random()-0.5)*4,vy:(Math.random()-0.5)*4,life:1,color:'#fff176',size:2+Math.random()*2});}
+    shockwaves.push({x,y,life:1,color:'#fff176'});shockwaves.push({x,y,life:1,color:'#fff'});
+  }else{
+    for(let i=0;i<20;i++){const a=(i/20)*Math.PI*2;const sp=2+Math.random()*3;particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,color:Math.random()<0.5?'#ce93d8':'#fff',size:2+Math.random()*3});}
+    spawnShockwave(x,y,color);
+  }
+}
+function castSpell(color,type,mult){
+  const t=type||'arcane';
+  const proj={x:W*0.25,y:H*0.45,tx:W*0.72,ty:H*0.42,life:1,color:color||'#4dd0e1',type:t,size:t==='lightning'?3:5,mult:mult||1};
+  if(t==='ice'){proj.vy=-1.2;proj.ay=0.04;}
+  if(t==='fire'){proj.vy=-0.6;}
+  spells.push(proj);
 }
 function spawnShockwave(x,y,color){shockwaves.push({x,y,life:1,color:color||'#ffd54f'})}
 function drawSpells(){
   for(let i=spells.length-1;i>=0;i--){const s=spells[i];
-    s.x+=(s.tx-s.x)*0.25; s.y+=(s.ty-s.y)*0.25; s.life-=0.06;
-    if(s.life<=0||Math.hypot(s.tx-s.x,s.ty-s.y)<8){spells.splice(i,1);
-      // burst
-      spawnParticles(s.tx,s.ty,s.color,10); spawnShockwave(s.tx,s.ty,s.color); continue;}
-    ctx.globalAlpha=0.9;ctx.fillStyle=s.color;ctx.shadowColor=s.color;ctx.shadowBlur=12;
-    ctx.beginPath();ctx.arc(s.x,s.y,5,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-    // trail
-    ctx.globalAlpha=0.3;ctx.beginPath();ctx.arc(s.x-6,s.y,3,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+    const dx=s.tx-s.x, dy=s.ty-s.y; const dist=Math.hypot(dx,dy);
+    if(s.ay)s.vy+=s.ay;
+    s.x+=dx*0.25; s.y+=(dy*0.25)+(s.vy||0); s.life-=0.06;
+    if(s.life<=0||dist<8){spells.splice(i,1); spellBurst(s.tx,s.ty,s.color,s.type); continue;}
+    ctx.globalAlpha=0.9;ctx.fillStyle=s.color;ctx.shadowColor=s.color;ctx.shadowBlur=14;
+    if(s.type==='lightning'){
+      ctx.strokeStyle=s.color;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(s.x,s.y);
+      for(let k=0;k<3;k++)ctx.lineTo(s.x+(Math.random()-0.5)*10,s.y+(Math.random()-0.5)*10);ctx.stroke();
+    }else if(s.type==='ice'){
+      ctx.save();ctx.translate(s.x,s.y);ctx.rotate(animTime*8);ctx.beginPath();ctx.moveTo(0,-s.size);ctx.lineTo(s.size*0.5,s.size*0.4);ctx.lineTo(-s.size*0.5,s.size*0.4);ctx.closePath();ctx.fill();ctx.restore();
+    }else if(s.type==='fire'){
+      ctx.beginPath();ctx.arc(s.x,s.y,s.size*(0.8+Math.random()*0.4),0,Math.PI*2);ctx.fill();
+    }else{
+      ctx.beginPath();ctx.arc(s.x,s.y,s.size,0,Math.PI*2);ctx.fill();
+    }
+    ctx.shadowBlur=0;
+    ctx.globalAlpha=0.3;ctx.fillStyle=s.color;ctx.beginPath();ctx.arc(s.x-6,s.y,3,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
   }
 }
 function drawShockwaves(){
@@ -1140,7 +1167,8 @@ function onStateChange(prev,curr){
     spawnParticles(W*0.72,H*0.42,'#ffd54f',30);sfxHit();
     attackAnim=1;attackAnimWho='player';
     swoosh.push({x:W*0.5,y:H*0.45,life:1,color:curr.streak>=3?'#ff416c':'#4dd0e1'});
-    castSpell(curr.streak>=3?'#ff416c':'#4dd0e1');
+    const _st=(state&&state.choices)?state.choices[selSpell||0]:null;
+    castSpell(_st?_st.color:(curr.streak>=3?'#ff416c':'#4dd0e1'), _st?_st.type:'arcane', _st?_st.mult:1);
     if(curr.streak>=3){spawnShockwave(W*0.72,H*0.42,'#ff416c');shakeTime=14;shakeMag=10;spawnCombo('STREAK x'+curr.streak+'!',curr.streak>=5?'#ff416c':'#ff9800');}
     for(let i=0;i<8;i++)attackTrail.push({x:W*0.25+i*12,y:H*0.45,life:1,color:curr.streak>=3?'#ff416c':'#4dd0e1'});
     for(let i=0;i<12;i++)spearTrails.push({x:W*0.25+(i*18),y:H*0.42+Math.sin(i)*5,life:1,color:'#4dd0e1'});
