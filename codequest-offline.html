@@ -549,6 +549,38 @@ function drawMonster(x,y,scl,type,hit,attacking,phase,draw){
 
 // === BACKGROUND SCENES ===
 
+function drawBiomeSilhouette(depth){
+  ctx.save();
+  const off=(bgOffset*0.25)%W;
+  if(depth<=1){
+    ctx.fillStyle='rgba(90,140,220,0.30)';
+    for(let i=-1;i<5;i++){const bx=i*W/3 - off;
+      ctx.beginPath();ctx.moveTo(bx,H*0.5);ctx.lineTo(bx+W/8,H*0.10);ctx.lineTo(bx+W/4,H*0.5);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.moveTo(bx+W/12,H*0.5);ctx.lineTo(bx+W/8,H*0.22);ctx.lineTo(bx+W/5,H*0.5);ctx.closePath();ctx.fill();}
+  }else if(depth<=3){
+    ctx.strokeStyle='rgba(80,180,90,0.35)';ctx.lineWidth=3;
+    for(let i=-1;i<6;i++){const bx=i*W/3.5 - off;
+      ctx.beginPath();ctx.moveTo(bx,H*0.5);ctx.quadraticCurveTo(bx+W/8,H*0.15,bx+W/4,H*0.5);ctx.stroke();}
+    ctx.fillStyle='rgba(120,220,120,0.30)';
+    for(let i=0;i<5;i++){const bx=((i*W/4 - off)%(W+40));let x=bx;if(x<-20)x+=W+40;
+      ctx.beginPath();ctx.ellipse(x,H*0.46,W/28,7,0,Math.PI,0);ctx.fill();}
+  }else if(depth<=5){
+    ctx.fillStyle='rgba(150,210,240,0.32)';
+    for(let i=-1;i<6;i++){const bx=i*W/3 - off;
+      ctx.beginPath();ctx.moveTo(bx,H*0.5);ctx.lineTo(bx+W/6,H*0.18);ctx.lineTo(bx+W/3,H*0.5);ctx.closePath();ctx.fill();}
+    ctx.fillStyle='rgba(255,255,255,0.5)';
+    for(let i=0;i<24;i++){const sx=((i*53+animTime*8)%W);const sy=((i*91+animTime*20)%H);ctx.globalAlpha=0.4+Math.sin(animTime+i)*0.2;ctx.beginPath();ctx.arc(sx,sy,1.4,0,Math.PI*2);ctx.fill();}
+    ctx.globalAlpha=1;
+  }else{
+    ctx.fillStyle='rgba(120,110,140,0.32)';
+    for(let i=-1;i<6;i++){const bx=i*W/3 - off;const ph=20+Math.abs(Math.sin(i*2.1))*30;
+      ctx.fillRect(bx,H*0.5-ph,W/22,ph);
+      ctx.fillRect(bx+W/3-W/22,H*0.5-(ph*0.6),W/22,ph*0.6);}
+    ctx.strokeStyle='rgba(155,89,182,0.28)';ctx.lineWidth=4;
+    ctx.beginPath();ctx.arc(W/2,H*0.5,W*0.22,Math.PI,0);ctx.stroke();
+  }
+  ctx.restore();
+}
 function drawCavernBg(){
   let depth=state?Math.min(7,Math.floor(state.rooms_cleared/3)):0;
   curBiome=depth>=3?'ruins':'cavern';
@@ -601,6 +633,8 @@ function drawCavernBg(){
     ctx.beginPath();ctx.moveTo(xx-7,H*0.22);ctx.lineTo(xx+7,H*0.22);ctx.lineTo(xx+2,H*0.22+h);ctx.lineTo(xx-2,H*0.22+h);ctx.fill();
   }
   ctx.restore();
+
+  drawBiomeSilhouette(depth);
 
   // Wall torches (flicker + light pools)
   drawTorches();
