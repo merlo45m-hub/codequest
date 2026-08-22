@@ -138,10 +138,27 @@ BOSSES={
  3:{"id":"frost_warden","name":"Frost Warden","emoji":"❄","biome":"Frozen Depths","hp":320,"atk":34,"xp":420,"color":"#5dade2","mechanic":"chill","draw":"frost","taunt":"The Frost Warden awakens!"},
  4:{"id":"crystal_titan","name":"Crystal Titan","emoji":"Ὀe","biome":"Deep Cavern","hp":440,"atk":42,"xp":700,"color":"#9b59b6","mechanic":"enrage","draw":"crystal","taunt":"The Crystal Titan towers!"},
 }
+# Signature telegraphed boss moves (ARCH #2: centralized tuning). Each boss picks a move on windup;
+# on a failed dodge the move's mult scales the strike and its effect may apply. Dodging avoids all of it.
+MOVES = {
+  "goblin_king": [
+    {"name": "Club Slam", "mult": 1.3, "effect": None},
+    {"name": "Warcry", "mult": 1.0, "effect": "frighten"},  # small hit + breaks your streak
+  ],
+  "frost_warden": [
+    {"name": "Frost Nova", "mult": 1.1, "effect": "chill"},  # hit + weakens next spell
+    {"name": "Ice Lance", "mult": 1.4, "effect": None},
+  ],
+  "crystal_titan": [
+    {"name": "Crystal Crush", "mult": 1.6, "effect": None},  # massive, but fully dodgeable
+    {"name": "Prism Burst", "mult": 1.2, "effect": "blind"},  # hit + lowers streak bonus
+  ],
+}
 def spawn_boss(stage, player_level):
     b=BOSSES.get(stage)
     if not b: b=BOSSES[4]
-    return {"name":b["name"],"emoji":b["emoji"],"hp":b["hp"]+player_level*30,"max_hp":b["hp"]+player_level*30,"atk":b["atk"]+player_level*3,"xp":b["xp"],"boss_id":b["id"],"biome":b["biome"],"color":b["color"],"mechanic":b["mechanic"],"draw":b["draw"],"taunt":b["taunt"]}
+    return {"name":b["name"],"emoji":b["emoji"],"hp":b["hp"]+player_level*30,"max_hp":b["hp"]+player_level*30,"atk":b["atk"]+player_level*3,"xp":b["xp"],"boss_id":b["id"],"biome":b["biome"],"color":b["color"],"mechanic":b["mechanic"],"draw":b["draw"],"taunt":b["taunt"],
+            "moves":MOVES.get(b["id"],[]),"current_move":None}
 def apply_class(g,cls):
     c=CLASSES.get(cls,CLASSES["knight"])
     g["hero_class"]=cls; g["class_name"]=c["name"]; g["class_color"]=c["color"]; g["class_emoji"]=c["emoji"]
@@ -234,7 +251,7 @@ def new_game(name, difficulty):
         "special": "bulwark", "special_ready": True, "special_armed": False, "bulwark_active": False, "regen": 0, "spell_mult": 1.0,
         "fork_right": "",
         "battle_round": 0,
-        "boss_telegraph": 0, "boss_pending_dmg": 0,  # combat lifecycle: 0=idle, 1=windup(active next turn)
+        "boss_telegraph": 0, "boss_pending_dmg": 0, "current_move": None,  # combat lifecycle: windup + signature move tracking
         "message": "",
         "message_type": "info",
     }
@@ -427,14 +444,33 @@ def action_answer(g, answer, choice=None):
             if g["mode"] == "boss" and g.get("boss_telegraph"):
                 m_dmg = g.get("boss_pending_dmg") or (g["monster"]["atk"] + random.randint(0, 3))
                 g["hp"] -= m_dmg
+                mv_name = g.get("current_move") or "strike"
+                eff = None
+                for _m in (g["monster"].get("moves") or []):
+                    if _m["name"] == mv_name:
+                        eff = _m.get("effect"); break
+                if eff == "chill":
+                    g["spell_mult"] = max(0.5, g.get("spell_mult", 1.0) - 0.3)
+                    g["message"] = f"\U0001F4A5 You failed to dodge the {mv_name}! {g['monster']['emoji']} hits you for {m_dmg} and CHILLS your magic (-30% next spell)!"
+                elif eff == "frighten":
+                    g["streak"] = 0
+                    g["message"] = f"\U0001F4A5 You failed to dodge the {mv_name}! {g['monster']['emoji']} hits you for {m_dmg} and breaks your streak!"
+                elif eff == "blind":
+                    g["streak"] = 0
+                    g["message"] = f"\U0001F4A5 You failed to dodge the {mv_name}! {g['monster']['emoji']} hits you for {m_dmg} and blinds you (streak reset)!"
+                else:
+                    g["message"] = f"\U0001F4A5 You failed to dodge the {mv_name}! {g['monster']['emoji']} strikes you for {m_dmg}!"
+                g["message_type"] = "miss"
                 g["boss_telegraph"] = 0
                 g["boss_pending_dmg"] = 0
-                g["message"] = f"\U0001F4A5 You failed to dodge! {g['monster']['emoji']} strikes you for {m_dmg}!"
-                g["message_type"] = "miss"
+                g["current_move"] = None
             elif g["mode"] == "boss":
+                moves = g["monster"].get("moves") or [{"name": "strike", "mult": 1.0, "effect": None}]
+                mv = random.choice(moves)
+                g["current_move"] = mv["name"]
                 g["boss_telegraph"] = CONFIG["combat"]["boss_telegraph_turns"]
-                g["boss_pending_dmg"] = g["monster"]["atk"] + random.randint(3, 8)
-                g["message"] = f"\u274c Wrong! Answer was {prob['a']}. {g['monster']['emoji']} winds up a strike \u2014 answer RIGHT next turn to DODGE it!"
+                g["boss_pending_dmg"] = int((g["monster"]["atk"] + random.randint(3, 8)) * mv["mult"])
+                g["message"] = f"\u274c Wrong! Answer was {prob['a']}. {g['monster']['emoji']} winds up {mv['name']} \u2014 answer RIGHT next turn to DODGE it!"
                 g["message_type"] = "miss"
             else:
                 m_dmg = g["monster"]["atk"] + random.randint(0, 3)

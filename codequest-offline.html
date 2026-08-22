@@ -1190,14 +1190,17 @@ function drawBattleScene(cy){
   ctx.fillStyle='#333';ctx.fillRect(W*0.52,cy-55,W*0.4,5);
   ctx.fillStyle=mPct>0.5?(gameMode==='boss'?'#e74c3c':'#e74c3c'):mPct>0.25?'#f39c12':'#c0392b';
   ctx.fillRect(W*0.52,cy-55,W*0.4*mPct,5);
-  // BOSS DODGE WINDOW (FSM windup): prompt player to answer right to dodge
+  // BOSS DODGE WINDOW (FSM windup): show the incoming signature move + dodge prompt
   if(gameMode==='boss'&&state.boss_telegraph){
+    const moveName=state.current_move||'strike';
     const pulse=0.55+0.45*Math.sin(animTime*14);
     ctx.save();ctx.textAlign='center';
     ctx.globalAlpha=pulse;ctx.fillStyle='#ff1744';ctx.font='bold 26px system-ui';
-    ctx.fillText('\u26a1 DODGE!',W*0.72,cy-78);
+    ctx.fillText('\u26a1 DODGE!',W*0.72,cy-82);
+    ctx.globalAlpha=1;ctx.fillStyle='#ff8a80';ctx.font='bold 15px system-ui';
+    ctx.fillText(moveName+' incoming!',W*0.72,cy-64);
     ctx.globalAlpha=1;ctx.fillStyle='#ffd54f';ctx.font='bold 12px system-ui';
-    ctx.fillText('Answer RIGHT to dodge the strike!',W*0.72,cy-62);
+    ctx.fillText('Answer RIGHT to dodge it!',W*0.72,cy-48);
     ctx.restore();
     ctx.save();ctx.globalAlpha=pulse*0.6;ctx.strokeStyle='#ff1744';ctx.lineWidth=4;
     ctx.beginPath();ctx.arc(mEnterX,my,60+Math.sin(animTime*10)*4,0,Math.PI*2);ctx.stroke();ctx.restore();
