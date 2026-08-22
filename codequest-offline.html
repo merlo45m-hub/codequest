@@ -239,6 +239,7 @@ const ui=document.getElementById('ui');
 let W=480,H=800;
 let SID=null,state=null,lastState=null;
 let particles=[],dmgNums=[],shakeTime=0,shakeMag=0,flashColor=null,flashAlpha=0;
+const CLIENT_CONFIG={max_particles:400,max_projectiles:64,max_shockwaves:24};
 let pHitFlash=0;
 let badges={};let badgeMsg='';let badgeMsgLife=0;
 let animTime=0,gameMode='title';
@@ -766,6 +767,7 @@ function drawVictory(){
 
 function spawnParticles(x,y,color,count){
   for(let i=0;i<count;i++){
+    if(particles.length>=CLIENT_CONFIG.max_particles)break;
     const ang=Math.random()*Math.PI*2;const spd=2+Math.random()*5;
     particles.push({x,y,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd-1,life:1,color,size:2+Math.random()*4});
   }
@@ -1056,12 +1058,13 @@ function spellBurst(x,y,color,type){
 }
 function castSpell(color,type,mult){
   const t=type||'arcane';
+  if(spells.length>=CLIENT_CONFIG.max_projectiles)return;
   const proj={x:W*0.25,y:H*0.45,tx:W*0.72,ty:H*0.42,life:1,color:color||'#4dd0e1',type:t,size:t==='lightning'?3:5,mult:mult||1};
   if(t==='ice'){proj.vy=-1.2;proj.ay=0.04;}
   if(t==='fire'){proj.vy=-0.6;}
   spells.push(proj);
 }
-function spawnShockwave(x,y,color){shockwaves.push({x,y,life:1,color:color||'#ffd54f'})}
+function spawnShockwave(x,y,color){if(shockwaves.length<CLIENT_CONFIG.max_shockwaves)shockwaves.push({x,y,life:1,color:color||'#ffd54f'})}
 function drawSpells(){
   for(let i=spells.length-1;i>=0;i--){const s=spells[i];
     const dx=s.tx-s.x, dy=s.ty-s.y; const dist=Math.hypot(dx,dy);
