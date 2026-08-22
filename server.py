@@ -89,6 +89,15 @@ CLASSES={
  "healer":  {"name":"Healer","glyph":"H","color":"#06b6d4","emoji":"+","desc":"Support. Regen 6hp/turn +1 potion. Special GREAT HEAL: +40% hp.","hp":100,"atk":8,"spell_mult":1.0,"special":"great_heal"},
 }
 SPECIAL_NAMES={"overload":"OVERLOAD","bulwark":"BULWARK","multishot":"MULTISHOT","great_heal":"GREAT HEAL"}
+BOSSES={
+ 1:{"id":"goblin_king","name":"Goblin King","emoji":"⾝","biome":"Green Tunnels","hp":220,"atk":28,"xp":300,"color":"#2ecc71","mechanic":"adds","draw":"goblin","taunt":"The Goblin King blocks the path!"},
+ 3:{"id":"frost_warden","name":"Frost Warden","emoji":"❄","biome":"Frozen Depths","hp":320,"atk":34,"xp":420,"color":"#5dade2","mechanic":"chill","draw":"frost","taunt":"The Frost Warden awakens!"},
+ 4:{"id":"crystal_titan","name":"Crystal Titan","emoji":"Ὀe","biome":"Deep Cavern","hp":440,"atk":42,"xp":700,"color":"#9b59b6","mechanic":"enrage","draw":"crystal","taunt":"The Crystal Titan towers!"},
+}
+def spawn_boss(stage, player_level):
+    b=BOSSES.get(stage)
+    if not b: b=BOSSES[4]
+    return {"name":b["name"],"emoji":b["emoji"],"hp":b["hp"]+player_level*30,"max_hp":b["hp"]+player_level*30,"atk":b["atk"]+player_level*3,"xp":b["xp"],"boss_id":b["id"],"biome":b["biome"],"color":b["color"],"mechanic":b["mechanic"],"draw":b["draw"],"taunt":b["taunt"]}
 def apply_class(g,cls):
     c=CLASSES.get(cls,CLASSES["knight"])
     g["hero_class"]=cls; g["class_name"]=c["name"]; g["class_color"]=c["color"]; g["class_emoji"]=c["emoji"]
@@ -152,7 +161,7 @@ def gen_math(difficulty, player_level):
 
 def spawn_monster(player_level, boss=False):
     if boss:
-        return {"name": "Crystal Titan", "emoji": "💎", "hp": 300 + player_level*50, "max_hp": 300 + player_level*50, "atk": 35 + player_level*5, "xp": 500}
+        return spawn_boss(4, player_level)
     avail = [m for m in MONSTERS if m["min_level"] <= player_level + 1 and m["name"] != "Crystal Titan"]
     t = random.choice(avail)
     scale = 1 + (player_level - t["min_level"]) * 0.15
@@ -236,9 +245,9 @@ def action_explore(g):
     stage = get_story_for_room(room)
     if stage is not None:
         g["story_stage"] = stage
-        if stage >= 4:
+        if stage in BOSSES:
             g["mode"] = "boss"
-            g["monster"] = spawn_monster(g["level"], boss=True)
+            g["monster"] = spawn_boss(stage, g["level"])
             g["battle_round"] = 0
             g["current_problem"] = gen_math(g["difficulty"], g["level"] + 2)
             g["choices"] = roll_spells(g["current_problem"]["cat"])
@@ -254,9 +263,9 @@ def action_explore(g):
         g["fork_right"]=opts[1]
         return g
     # Final boss
-    if g["story_stage"] >= 4 and g["story_stage"] < 5 and room >= 14:
+    if g["story_stage"] >= 4 and g["story_stage"] < 5 and room >= 14 and g.get("monster") is None:
         g["mode"] = "boss"
-        g["monster"] = spawn_monster(g["level"], boss=True)
+        g["monster"] = spawn_boss(4, g["level"])
         g["battle_round"] = 0
         g["current_problem"] = gen_math(g["difficulty"], g["level"] + 2)
         g["choices"] = roll_spells(g["current_problem"]["cat"])
@@ -330,12 +339,18 @@ def action_answer(g, answer, choice=None):
                 g["message"] = f"✅ Correct! {dmg} damage!"
             g["monster"]["hp"] -= dmg
             if g["mode"] == "boss" and g["monster"]["hp"] <= 0 and g["story_stage"] < 5:
-                g["story_stage"] = 5
+                is_final = g["monster"].get("boss_id") == "crystal_titan"
                 g["mode"] = "explore"
-
-                g["message"] = "The Crystal Titan falls! You are CHAMPION!"
-                g["message_type"] = "win"
-                return g
+                if is_final:
+                    g["story_stage"] = 5
+                    g["message"] = "The Crystal Titan falls! You are CHAMPION!"
+                    g["message_type"] = "win"
+                    return g
+                else:
+                    g["rooms_cleared"] += 1
+                    g["message"] = f"You defeated the {g['monster']['name']}! The path opens deeper into the caverns."
+                    g["message_type"] = "win"
+                    return g
             g["message_type"] = "hit"
             if g["monster"]["hp"] <= 0:
                 xp = int(g["monster"]["xp"] * DIFFICULTY[g["difficulty"]]["xp_mult"])
@@ -347,8 +362,11 @@ def action_answer(g, answer, choice=None):
                 g["mode"] = "explore"
                 g["rooms_cleared"] += 1
                 if was_boss:
-                    g["story_stage"] = 5
-                    g["message"] = "👑 CHAMPION! You defeated the Crystal Titan and claimed the Knowledge Crystal!"
+                    if g["monster"].get("boss_id") == "crystal_titan":
+                        g["story_stage"] = 5
+                        g["message"] = "👑 CHAMPION! You defeated the Crystal Titan and claimed the Knowledge Crystal!"
+                    else:
+                        g["message"] = f"🏆 You defeated the {g['monster']['name']}! Deeper you go..."
                 else:
                     g["message"] = f"🎉 Victory! +{xp} XP, +{gems} gems!"
                 g["message_type"] = "victory"
@@ -373,7 +391,7 @@ def action_answer(g, answer, choice=None):
             g["boss_phase"] = 3 if ratio <= 0.25 else 2 if ratio <= 0.5 else 1
             if g["boss_phase"] >= 2:
                 g["monster"]["atk"] = int(g["monster"]["atk"] * 1.4)
-                g["message"] += " Crystal Titan ENRAGES!"
+                g["message"] += f" {g['monster']['name']} ENRAGES!"
         g["choices"] = roll_spells(g["current_problem"]["cat"])
         return g
 
@@ -459,6 +477,7 @@ def action_shop(g, choice):
         g["message"] = "Not enough gems!"
         return g
     g["mode"] = "explore"
+    return g
 
 def action_special(g):
     if not g.get("special_ready"):

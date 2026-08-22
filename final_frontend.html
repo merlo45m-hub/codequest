@@ -260,7 +260,7 @@ function drawPlayer(x,y,scl,hit,attacking,heroClass){
   ctx.restore();
 }
 
-function drawMonster(x,y,scl,type,hit,attacking,phase){
+function drawMonster(x,y,scl,type,hit,attacking,phase,draw){
   ctx.save();ctx.translate(x,y);ctx.scale(scl,scl);
   const bob=Math.sin(animTime*1.5+1)*3;
   ctx.translate(0,bob);
@@ -327,31 +327,53 @@ function drawMonster(x,y,scl,type,hit,attacking,phase){
     ctx.fillStyle=t.includes('shadow')?'#e74c3c':'#5b2c6f';ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=10;
     ctx.beginPath();ctx.arc(-5,-10,2.5,0,Math.PI*2);ctx.arc(5,-10,2.5,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
     ctx.globalAlpha=1;
-  }else if(t.includes('crystal')||t.includes('titan')||t.includes('boss')){
+  }else if(draw==='crystal'||draw==='goblin'||draw==='frost'||t.includes('crystal')||t.includes('titan')||t.includes('boss')){
     const PH=phase||1;
-    const COL=PH===1?{a:'#e8a6f0',b:'#6c3483',eye:'#ff5e9c',shard:'#d2b4de'}:PH===2?{a:'#ffb199',b:'#b03a2e',eye:'#ff3d00',shard:'#ffcc99'}:{a:'#ff8a80',b:'#7b1010',eye:'#ff1744',shard:'#ffb3b3'};
-    // outer aura
-    const aura=Math.sin(animTime*2)*0.15+0.28;ctx.globalAlpha=aura;ctx.fillStyle=COL.b;ctx.beginPath();ctx.arc(0,0,40,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
-    // orbiting shards crown
-    const rot=animTime*(PH>1?1.1:0.4);
-    for(let a=0;a<8;a++){const ang=a*Math.PI/4+rot;const sx=Math.cos(ang)*26,sy=Math.sin(ang)*26;
-      ctx.save();ctx.translate(sx,sy);ctx.rotate(ang+animTime);const sg=ctx.createLinearGradient(0,-8,0,8);sg.addColorStop(0,COL.shard);sg.addColorStop(1,COL.b);
-      ctx.fillStyle=sg;ctx.beginPath();ctx.moveTo(0,-9);ctx.lineTo(5,2);ctx.lineTo(-5,2);ctx.closePath();ctx.fill();ctx.restore();}
-    // faceted crystal body (angular golem)
-    const cg=ctx.createRadialGradient(-6,-8,3,0,0,28);cg.addColorStop(0,COL.a);cg.addColorStop(1,COL.b);
-    ctx.fillStyle=cg;ctx.beginPath();
-    ctx.moveTo(0,-24);ctx.lineTo(16,-8);ctx.lineTo(20,10);ctx.lineTo(6,24);ctx.lineTo(-6,24);ctx.lineTo(-20,10);ctx.lineTo(-16,-8);ctx.closePath();ctx.fill();
-    // facet lines
-    ctx.strokeStyle='rgba(255,255,255,0.25)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,-24);ctx.lineTo(0,24);ctx.moveTo(-16,-8);ctx.lineTo(16,-8);ctx.moveTo(-20,10);ctx.lineTo(20,10);ctx.stroke();
-    // glowing core
-    const core=0.6+Math.sin(animTime*(PH>1?6:3))*0.3;ctx.fillStyle=COL.a;ctx.shadowColor=COL.a;ctx.shadowBlur=18*core;
-    ctx.beginPath();ctx.arc(0,2,7*core+3,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-    // eyes (menacing)
-    ctx.fillStyle=COL.eye;ctx.shadowColor=COL.eye;ctx.shadowBlur=10;
-    ctx.beginPath();ctx.moveTo(-10,-10);ctx.lineTo(-4,-12);ctx.lineTo(-4,-8);ctx.closePath();ctx.fill();
-    ctx.beginPath();ctx.moveTo(10,-10);ctx.lineTo(4,-12);ctx.lineTo(4,-8);ctx.closePath();ctx.fill();ctx.shadowBlur=0;
-    // enrage cracks
-    if(PH>1){ctx.strokeStyle=COL.eye;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(-6,-18);ctx.lineTo(-2,-6);ctx.lineTo(-8,4);ctx.moveTo(8,-16);ctx.lineTo(4,-4);ctx.lineTo(9,6);ctx.stroke();}
+    if(draw==='goblin'){
+      // Goblin King: bulky green brute with gold crown + club
+      const COL={a:'#7bed9f',b:'#1e6b3a',eye:'#ffeb3b',crown:'#ffd54f'}[PH>1?'b':'a'];
+      ctx.fillStyle=PH>1?'#14532d':'#2ecc71';ctx.beginPath();ctx.ellipse(0,4,22,20,0,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#27ae60';ctx.beginPath();ctx.arc(0,-14,14,0,Math.PI*2);ctx.fill();
+      // ears
+      ctx.fillStyle='#1e6b3a';ctx.beginPath();ctx.moveTo(-12,-16);ctx.lineTo(-22,-26);ctx.lineTo(-8,-20);ctx.fill();ctx.beginPath();ctx.moveTo(12,-16);ctx.lineTo(22,-26);ctx.lineTo(8,-20);ctx.fill();
+      // gold crown
+      ctx.fillStyle='#ffd54f';ctx.beginPath();ctx.moveTo(-12,-24);ctx.lineTo(-8,-32);ctx.lineTo(-4,-26);ctx.lineTo(0,-34);ctx.lineTo(4,-26);ctx.lineTo(8,-32);ctx.lineTo(12,-24);ctx.closePath();ctx.fill();
+      // eyes
+      ctx.fillStyle=PH>1?'#ff3d00':'#ffeb3b';ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=8;ctx.beginPath();ctx.arc(-6,-14,3,0,Math.PI*2);ctx.arc(6,-14,3,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+      // tusks
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(-4,-8);ctx.lineTo(-6,-2);ctx.lineTo(-2,-6);ctx.fill();ctx.beginPath();ctx.moveTo(4,-8);ctx.lineTo(6,-2);ctx.lineTo(2,-6);ctx.fill();
+      // club
+      ctx.strokeStyle='#6b4423';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(18,8);ctx.lineTo(28,-10);ctx.stroke();ctx.fillStyle='#8b5a2b';ctx.beginPath();ctx.arc(28,-12,7,0,Math.PI*2);ctx.fill();
+      if(PH>1){ctx.strokeStyle='#ff3d00';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-14,-20);ctx.lineTo(-8,-4);ctx.lineTo(-14,8);ctx.stroke();}
+    }else if(draw==='frost'){
+      // Frost Warden: cyan ice sentinel with crystal spikes
+      const fa=Math.sin(animTime*2)*0.12+0.5;ctx.globalAlpha=fa;ctx.fillStyle='#5dade2';ctx.beginPath();ctx.arc(0,0,34,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+      const cg=ctx.createRadialGradient(-5,-6,2,0,0,24);cg.addColorStop(0,'#d6f5ff');cg.addColorStop(1,'#2e86c1');
+      ctx.fillStyle=cg;
+      for(let i=0;i<6;i++){const a=i*Math.PI/3+animTime*0.3;ctx.save();ctx.translate(Math.cos(a)*14,Math.sin(a)*14);ctx.rotate(a);ctx.beginPath();ctx.moveTo(0,-12);ctx.lineTo(5,4);ctx.lineTo(-5,4);ctx.closePath();ctx.fill();ctx.restore();}
+      ctx.beginPath();ctx.arc(0,0,15,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#aed6f1';ctx.shadowColor='#85c1e9';ctx.shadowBlur=12;ctx.beginPath();ctx.arc(-4,-3,2.5,0,Math.PI*2);ctx.arc(4,-3,2.5,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+      ctx.fillStyle='#154360';ctx.beginPath();ctx.arc(-4,-3,1.2,0,Math.PI*2);ctx.arc(4,-3,1.2,0,Math.PI*2);ctx.fill();
+      if(PH>1){ctx.strokeStyle='#fff';ctx.lineWidth=1.5;for(let i=0;i<4;i++){const a=i*Math.PI/2+animTime;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(a)*22,Math.sin(a)*22);ctx.stroke();}}
+    }else{
+      // Crystal Titan (existing faceted golem)
+      const COL=PH===1?{a:'#e8a6f0',b:'#6c3483',eye:'#ff5e9c',shard:'#d2b4de'}:PH===2?{a:'#ffb199',b:'#b03a2e',eye:'#ff3d00',shard:'#ffcc99'}:{a:'#ff8a80',b:'#7b1010',eye:'#ff1744',shard:'#ffb3b3'};
+      const aura=Math.sin(animTime*2)*0.15+0.28;ctx.globalAlpha=aura;ctx.fillStyle=COL.b;ctx.beginPath();ctx.arc(0,0,40,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+      const rot=animTime*(PH>1?1.1:0.4);
+      for(let a=0;a<8;a++){const ang=a*Math.PI/4+rot;const sx=Math.cos(ang)*26,sy=Math.sin(ang)*26;
+        ctx.save();ctx.translate(sx,sy);ctx.rotate(ang+animTime);const sg=ctx.createLinearGradient(0,-8,0,8);sg.addColorStop(0,COL.shard);sg.addColorStop(1,COL.b);
+        ctx.fillStyle=sg;ctx.beginPath();ctx.moveTo(0,-9);ctx.lineTo(5,2);ctx.lineTo(-5,2);ctx.closePath();ctx.fill();ctx.restore();}
+      const cg=ctx.createRadialGradient(-6,-8,3,0,0,28);cg.addColorStop(0,COL.a);cg.addColorStop(1,COL.b);
+      ctx.fillStyle=cg;ctx.beginPath();
+      ctx.moveTo(0,-24);ctx.lineTo(16,-8);ctx.lineTo(20,10);ctx.lineTo(6,24);ctx.lineTo(-6,24);ctx.lineTo(-20,10);ctx.lineTo(-16,-8);ctx.closePath();ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,0.25)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,-24);ctx.lineTo(0,24);ctx.moveTo(-16,-8);ctx.lineTo(16,-8);ctx.moveTo(-20,10);ctx.lineTo(20,10);ctx.stroke();
+      const core=0.6+Math.sin(animTime*(PH>1?6:3))*0.3;ctx.fillStyle=COL.a;ctx.shadowColor=COL.a;ctx.shadowBlur=18*core;
+      ctx.beginPath();ctx.arc(0,2,7*core+3,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+      ctx.fillStyle=COL.eye;ctx.shadowColor=COL.eye;ctx.shadowBlur=10;
+      ctx.beginPath();ctx.moveTo(-10,-10);ctx.lineTo(-4,-12);ctx.lineTo(-4,-8);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.moveTo(10,-10);ctx.lineTo(4,-12);ctx.lineTo(4,-8);ctx.closePath();ctx.fill();ctx.shadowBlur=0;
+      if(PH>1){ctx.strokeStyle=COL.eye;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(-6,-18);ctx.lineTo(-2,-6);ctx.lineTo(-8,4);ctx.moveTo(8,-16);ctx.lineTo(4,-4);ctx.lineTo(9,6);ctx.stroke();}
+    }
   }else if(t.includes('fire')){
     // Fire Imp: horned, flame-tipped tail, glowing eyes
     const fl=Math.sin(animTime*8)*3;
@@ -534,8 +556,9 @@ function drawBossIntro(){
     ctx.strokeText('BOSS BATTLE',W/2,H/2);
     ctx.fillText('BOSS BATTLE',W/2,H/2);
     ctx.font='bold 14px system-ui';ctx.fillStyle='#ffd54f';
-    ctx.strokeText('Crystal Titan approaches...',W/2,H/2+30);
-    ctx.fillText('Crystal Titan approaches...',W/2,H/2+30);
+    const bn=(gameMode==='boss'&&state.monster)?state.monster.name:'Crystal Titan';
+    ctx.strokeText(bn+' approaches...',W/2,H/2+30);
+    ctx.fillText(bn+' approaches...',W/2,H/2+30);
     ctx.globalAlpha=1;
   }
 }
@@ -1002,7 +1025,7 @@ function drawBattleScene(cy){
   drawPlayer(px,py,1.8,pHit,pAttacking,state.hero_class);
   const mType=m.name.toLowerCase().split(' ')[0];
   const mEnterX=mx+monsterEnter*W*0.5;
-  if(monsterDeath>0){ctx.globalAlpha=monsterDeath;ctx.translate(0,monsterDeath*20);drawMonster(mEnterX,my,1.8,mType,mHit,mAttacking,gameMode==='boss'?state.boss_phase:0);ctx.globalAlpha=1;}else{drawMonster(mEnterX,my,1.8,mType,mHit,mAttacking,gameMode==='boss'?state.boss_phase:0);}
+  if(monsterDeath>0){ctx.globalAlpha=monsterDeath;ctx.translate(0,monsterDeath*20);drawMonster(mEnterX,my,1.8,mType,mHit,mAttacking,gameMode==='boss'?state.boss_phase:0,(gameMode==='boss'&&state.monster)?state.monster.draw:null);ctx.globalAlpha=1;}else{drawMonster(mEnterX,my,1.8,mType,mHit,mAttacking,gameMode==='boss'?state.boss_phase:0,(gameMode==='boss'&&state.monster)?state.monster.draw:null);}
   // Monster HP bar
   const mPct=Math.max(0,m.hp/m.max_hp);
   ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(W*0.5,cy-75,W*0.45,20);
