@@ -257,6 +257,7 @@ let chestAnim=0,chestOpen=false;
 let bossIntro=0;
 let bgOffset=0;
 let monsterDeath=0;
+let pHurt=0, mHurt=0, pDeath=0, playerDead=false;  // hurt/death animation timers
 let lowHpPulse=0;
 let levelUpText="";
 let levelUpTextLife=0;
@@ -337,6 +338,8 @@ function drawPlayer(x,y,scl,hit,attacking,heroClass){
   const breathe=Math.sin(animTime*2.5)*1.5;
   ctx.translate(0,breathe);
   if(hit){ctx.translate(Math.sin(animTime*60)*6,0);ctx.filter='brightness(2.2) saturate(2)'}
+  if(pHurt>0){const k=pHurt;ctx.translate(-k*10,-k*5);ctx.scale(1-k*0.12,1+k*0.12);ctx.filter='brightness(1.5) saturate(2) hue-rotate(-25deg)';}
+  if(playerDead){const d=pDeath;ctx.globalAlpha=Math.max(0,1-d*0.9);ctx.rotate(d*Math.PI/2*0.8);ctx.translate(0,d*14);ctx.scale(1,1-d*0.3);}
   const lunge=attacking?Math.sin(Math.min(attackAnim,1)*Math.PI)*10:0;
   ctx.translate(lunge,0);
   // Cape (flowing cloth with sine wave)
@@ -414,6 +417,7 @@ function drawMonster(x,y,scl,type,hit,attacking,phase,draw){
   const bob=Math.sin(animTime*1.5+1)*3;
   ctx.translate(0,bob);
   if(hit){ctx.translate(Math.sin(animTime*50)*5,0);ctx.filter='brightness(2.2) saturate(2)'}
+  if(mHurt>0){const k=mHurt;ctx.translate(k*12,-k*4);ctx.scale(1+k*0.1,1-k*0.1);ctx.filter='brightness(1.6) saturate(2) hue-rotate(-25deg)';}
   if(attacking){ctx.translate(-Math.sin(Math.min(attackAnim,1)*Math.PI)*14,0)}
   const t=(type||'slime').toLowerCase();
   if(t.includes('slime')){
@@ -1112,6 +1116,9 @@ function loop(){
   else {camTarget=1;camPanTarget=0}
   camZoom+=(camTarget-camZoom)*0.06;camPanX+=(camPanTarget-camPanX)*0.06;
   if(monsterDeath>0){monsterDeath-=0.02;if(monsterDeath<0)monsterDeath=0}
+  if(pHurt>0){pHurt-=0.06;if(pHurt<0)pHurt=0}
+  if(mHurt>0){mHurt-=0.06;if(mHurt<0)mHurt=0}
+  if(playerDead){pDeath+=0.012;if(pDeath>1)pDeath=1}
   if(levelUpTextLife>0){levelUpTextLife-=0.015;if(levelUpTextLife<0)levelUpTextLife=0}
   if(badgeMsgLife>0)badgeMsgLife-=0.012;
   if(victoryTime>0){victoryTime-=0.006;if(victoryTime<0)victoryTime=0}
@@ -1229,7 +1236,7 @@ function onStateChange(prev,curr){
   if((curr.mode==='battle'||curr.mode==='boss')&&prev.mode!=='battle'&&prev.mode!=='boss'){monsterEnter=1;attackAnim=0;attackAnimWho=null}
   // Player damage
   if(curr.hp<prev.hp){
-    shakeTime=10;shakeMag=10;flashColor='#ff0000';flashAlpha=0.4;pHitFlash=1;
+    shakeTime=10;shakeMag=10;flashColor='#ff0000';flashAlpha=0.4;pHitFlash=1;pHurt=1;
     spawnDmg(W*0.25,H*0.38,prev.hp-curr.hp,'player');
     spawnParticles(W*0.25,H*0.42,'#ff5252',25);sfxHurt();
     attackAnim=1;attackAnimWho='monster';
@@ -1237,7 +1244,7 @@ function onStateChange(prev,curr){
   // Monster damage
   if(prev.monster&&curr.monster&&curr.monster.hp<prev.monster.hp){
     spawnDmg(W*0.72,H*0.38,prev.monster.hp-curr.monster.hp,'monster');
-    spawnParticles(W*0.72,H*0.42,'#ffd54f',30);sfxHit();
+    spawnParticles(W*0.72,H*0.42,'#ffd54f',30);sfxHit();mHurt=1;
     attackAnim=1;attackAnimWho='player';
     swoosh.push({x:W*0.5,y:H*0.45,life:1,color:curr.streak>=3?'#ff416c':'#4dd0e1'});
     const _st=(state&&state.choices)?state.choices[selSpell||0]:null;
@@ -1273,7 +1280,7 @@ function onStateChange(prev,curr){
   // Boss intro
   if(curr.mode==='boss'&&prev.mode!=='boss'){bossIntro=1;sfxBoss();shakeTime=24;shakeMag=12;spawnShockwave(W*0.5,H*0.45,'#9b59b6');for(let i=0;i<20;i++)spawnParticles(W*0.5,H*0.45,'#9b59b6',20)}
   // Death
-  if(curr.mode==='gameover'){sfxDeath();shakeTime=20;shakeMag=15;flashColor='#ff0000';flashAlpha=0.6}
+  if(curr.mode==='gameover'){sfxDeath();shakeTime=20;shakeMag=15;flashColor='#ff0000';flashAlpha=0.6;playerDead=true;pDeath=1;pHurt=1}
   // Shop enter
   if(curr.mode==='shop'&&prev.mode!=='shop'){sfxShop()}
   // Heal
