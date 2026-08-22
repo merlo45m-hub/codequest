@@ -34,6 +34,7 @@ canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rend
 .panel.title-screen{top:50%;transform:translateY(-50%);bottom:auto;text-align:center;background:linear-gradient(160deg,rgba(20,12,45,0.92),rgba(8,8,24,0.95));border:1px solid rgba(124,77,255,0.35);box-shadow:0 0 40px rgba(124,77,255,0.25)}
 .game-logo{font-size:1.7em;font-weight:bold;margin:0 0 2px;background:linear-gradient(90deg,#4dd0e1,#b388ff,#ff8a80);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:1px;animation:logopulse 2.4s ease-in-out infinite}
 @keyframes logopulse{0%,100%{filter:drop-shadow(0 0 6px rgba(124,77,255,0.5));transform:scale(1)}50%{filter:drop-shadow(0 0 18px rgba(124,77,255,0.9));transform:scale(1.03)}}
+@keyframes pulseGlow{0%,100%{box-shadow:0 0 4px rgba(77,208,225,0.5)}50%{box-shadow:0 0 16px rgba(77,208,225,0.95)}}
 .game-tag{font-size:0.78em;color:#80deea;margin-bottom:10px;letter-spacing:2px;text-transform:uppercase}
 .diff-row{display:flex;gap:5px;margin:6px 0}
 .diff-btn{flex:1;padding:9px 4px;border-radius:9px;border:2px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:#ccc;font-size:0.72em;font-weight:bold;cursor:pointer;transition:all .15s}
@@ -105,6 +106,7 @@ let showHelp=false;
 let showHint=false;
 let roomTrans=0,roomTransDir=1;
 let attackAnim=0,attackAnimWho=null;
+let questionStart=0;  // RESPONSE COUNTDOWN: timestamp when current battle problem shown
 let chestAnim=0,chestOpen=false;
 let bossIntro=0;
 let bgOffset=0;
@@ -735,6 +737,22 @@ function drawDmgNums(){
     ctx.restore();
   }
 }
+function drawCountdownBar(){
+  if(!(gameMode==='battle'||gameMode==='boss'))return;
+  const elapsed=(performance.now()-questionStart)/1000;
+  const frac=Math.max(0,1-Math.min(elapsed/10,1));
+  const w=W*0.5, x=W*0.25, y=H*0.20, h=10;
+  ctx.save();
+  ctx.fillStyle='rgba(0,0,0,0.45)';ctx.fillRect(x-2,y-2,w+4,h+4);
+  // crit zone (first 3s) gold, then red
+  const inCrit=elapsed<3;
+  const col=inCrit?'#ffd54f':(frac>0.3?'#ff8a65':'#ff1744');
+  ctx.fillStyle=col;
+  ctx.fillRect(x,y,w*frac,h);
+  ctx.fillStyle=inCrit?'#fff':'#fff';ctx.font='bold 11px system-ui';ctx.textAlign='center';
+  ctx.fillText(inCrit?('⚡ CRIT ZONE '+Math.max(0,(3-elapsed)).toFixed(1)+'s'):('⏱ '+Math.max(0,(10-elapsed)).toFixed(1)+'s'), x+w/2, y-6);
+  ctx.restore();
+}
 function drawFlash(){
   if(pHitFlash>0){pHitFlash-=0.04;if(pHitFlash<0)pHitFlash=0;ctx.save();ctx.globalAlpha=pHitFlash*0.5;ctx.strokeStyle='#ff1744';ctx.lineWidth=18;ctx.strokeRect(9,9,W-18,H-18);ctx.restore();}
   if(flashAlpha>0){ctx.fillStyle=flashColor;ctx.globalAlpha=flashAlpha;ctx.fillRect(0,0,W,H);ctx.globalAlpha=1;flashAlpha-=0.04}
@@ -1058,7 +1076,7 @@ function loop(){
   }
   ctx.restore(); // end camera transform
 
-  drawStreakFire();drawGoldRain();drawAttackTrail();drawSpears();drawLevelUpText();drawParticles();drawDmgNums();drawSpells();drawShockwaves();drawSwoosh();drawComboTexts();drawFlash();drawBossIntro();drawVictory();drawRoomTransition();drawVignette();
+  drawStreakFire();drawGoldRain();drawAttackTrail();drawSpears();drawLevelUpText();drawParticles();drawDmgNums();drawSpells();drawShockwaves();drawSwoosh();drawComboTexts();drawFlash();drawBossIntro();drawVictory();drawRoomTransition();drawVignette();drawCountdownBar();
   if((gameMode==='explore'||gameMode==='rest'||gameMode==='treasure')&&storyScene>0){
     ctx.save();ctx.globalAlpha=0.55+0.45*Math.sin(animTime*2);
     const sc=ctx.createRadialGradient(W/2,H*0.42,10,W/2,H*0.42,110);sc.addColorStop(0,'rgba(155,89,182,0.55)');sc.addColorStop(1,'rgba(155,89,182,0)');
@@ -1275,7 +1293,12 @@ function chargeChipHTML(state){
     panel+=`<div style="text-align:center;font-size:0.8em;color:#ffd54f;margin:4px 0">The path splits! Which way?</div>`;
     panel+=`<div class="spell-row"><div class="spell-btn clickable" style="border-color:#4dd0e1" onclick="api('fork',{side:'left'})"><div style="font-weight:bold;color:#4dd0e1">⬅️ Left</div><div style="font-size:0.66em">${label[fl]||fl}</div></div><div class="spell-btn clickable" style="border-color:#ff8a80" onclick="api('fork',{side:'right'})"><div style="font-weight:bold;color:#ff8a80">Right ➡️</div><div style="font-size:0.66em">${label[fr]||fr}</div></div></div>`;
   }else if(state.mode==='battle'||state.mode==='boss'){
+    questionStart=performance.now();  // start the 10s countdown for this problem
     const p=state.current_problem;
+    // ACTIVE DEFENSE: tap Bulwark during the boss windup to parry
+    if(state.boss_telegraph){
+      panel+=`<button class=\"btn btn-special clickable\" onclick=\"api('defend')\" style=\"margin:4px 0;width:100%;font-weight:bold;color:#9be7ff;border-color:#4dd0e1;animation:pulseGlow 0.7s infinite\">🛡 BULWARK — PARRY THE ${state.current_move||'strike'}!</button>`;
+    }
     if(state.choices){
       panel+=`<div style="font-size:0.7em;color:#bbb;margin:2px 0">Choose your spell:</div>`;
       panel+=`<div class="spell-row">`;
@@ -1339,7 +1362,7 @@ panel+=`<button class="btn btn-primary clickable" onclick="doAnswer()">Submit</b
   if(ans)setTimeout(()=>ans.focus(),100);
 }
 
-function doAnswer(){const v=document.getElementById('answer').value;if(v)api('answer',{answer:v,choice:selSpell||0})}
+function doAnswer(){const v=document.getElementById('answer').value;if(v){const rt=(performance.now()-questionStart)/1000;api('answer',{answer:v,choice:selSpell||0,response_time:Math.max(0,Math.min(rt,10))})}}
 function doShop(c){api('shop',{choice:c})}
 function resumeGame(){if(!savedSID)return;SID=savedSID;api('resume').then(()=>{}).catch(()=>{});}
 function hasLocalSave(){try{return !!localStorage.getItem('cq_save');}catch(e){return false;}}

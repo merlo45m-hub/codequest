@@ -109,6 +109,15 @@ CONFIG = {
         "charge_mult": 1.6,
         "max_charges": 3,
     },
+    "crit": {
+        "window": 3.0,          # answer within this many seconds for +50% crit
+        "mult": 1.5,            # critical damage multiplier
+        "time_limit": 10.0,     # client countdown bar length (seconds)
+    },
+    "defense": {
+        "parry_reduction": 0.70,   # damage mitigated when Bulwark-parried during windup
+        "bulwark_full_negate": True,  # Knight BULWARK special fully negates the parried hit
+    },
     "pools": {"max_particles": 400, "max_projectiles": 64, "max_shockwaves": 24},
     "boss": {"phase2_ratio": 0.50, "phase3_ratio": 0.25},
 }
@@ -258,6 +267,8 @@ def new_game(name, difficulty):
         "battle_round": 0,
         "boss_telegraph": 0, "boss_pending_dmg": 0, "current_move": None,  # combat lifecycle: windup + signature move tracking
         "charges": 0, "combo_threshold": CONFIG["combo"]["threshold"], "charged_this_hit": False,  # INTERACTIVE MECHANIC: answer-combo -> charged spell
+        "crit_this_hit": False, "last_response_time": None,  # RESPONSE COUNTDOWN: first-3s crit
+        "defended": False,  # ACTIVE DEFENSE: Bulwark parry during enemy windup
         "message": "",
         "message_type": "info",
     }
@@ -299,6 +310,35 @@ def action_restore(state):
     sid=str(uuid.uuid4())
     GAMES[sid]=g
     return sid,g
+
+def action_defend(g):
+    """ACTIVE DEFENSE: tap Bulwark during the enemy attack windup (boss_telegraph) to parry/reduce the telegraphed strike."""
+    g["defended"] = False
+    if g["mode"] == "boss" and g.get("boss_telegraph"):
+        mv = g.get("current_move") or "strike"
+        pdmg = g.get("boss_pending_dmg") or (g["monster"]["atk"] + random.randint(0, 3))
+        # Full negate if Knight BULWARK special is ready; else flat parry reduction
+        if g.get("special") == "bulwark" and g.get("special_ready"):
+            reduced = 0
+            g["special_ready"] = False
+            g["message"] = "\U0001F6E1 BULWARK! You slam your guard up and FULLY parry the %s! (special spent)" % mv
+        else:
+            reduced = int(round(pdmg * (1 - CONFIG["defense"]["parry_reduction"]))) if False else int(round(pdmg * (1 - CONFIG["defense"]["parry_reduction"])))
+            g["message"] = "\U0001F6E1 BULWARK! You parry the %s for %d dmg (mitigated %d%%)!" % (mv, reduced, int(CONFIG["defense"]["parry_reduction"] * 100))
+        g["hp"] -= reduced
+        g["boss_telegraph"] = 0
+        g["boss_pending_dmg"] = 0
+        g["current_move"] = None
+        g["defended"] = True
+        g["message_type"] = "defend"
+        # small heal flavor for bulwark class
+        if g.get("special") == "bulwark":
+            g["hp"] = min(g["max_hp"], g["hp"] + int(g["max_hp"] * 0.10))
+    else:
+        g["message"] = "\U0001F6E1 You raise your guard, but there is no incoming attack to block."
+        g["message_type"] = "info"
+    return g
+
 
 def action_explore(g):
     if g["mode"] in ("battle", "boss", "puzzle", "shop", "fork"):
@@ -373,7 +413,7 @@ def action_explore(g):
         g["mode"] = "shop"
     return g
 
-def action_answer(g, answer, choice=None):
+def action_answer(g, answer, choice=None, response_time=None):
     answer = answer.strip()
     if g["mode"] == "battle" or g["mode"] == "boss":
         prob = g["current_problem"]
@@ -382,6 +422,12 @@ def action_answer(g, answer, choice=None):
             sm = sm if sm else 1.0
             sp = resolve_special(g.get("special"), g.get("special_armed"), g.get("special_ready"), g["max_hp"])
             dmg = calc_spell_damage(g["attack"], sm, sp["dmg_mult"], g["streak"])
+            # RESPONSE COUNTDOWN CRIT: answer within crit.window seconds -> +50%
+            g["last_response_time"] = response_time
+            g["crit_this_hit"] = False
+            if response_time is not None and response_time <= CONFIG["crit"]["window"]:
+                dmg = int(round(dmg * CONFIG["crit"]["mult"]))
+                g["crit_this_hit"] = True
             if sp["consume"]:
                 g["special_ready"] = False
                 if sp["heal"]:
@@ -415,6 +461,9 @@ def action_answer(g, answer, choice=None):
                 dmg = int(round(dmg * cm))
                 g["charged_this_hit"] = True
                 g["message"] = "\u26a1 CHARGED SPELL! x%d \u2014 %d dmg!" % (int(cm), dmg)
+            # RESPONSE COUNTDOWN CRIT: stamp the crit into the final message
+            if g.get("crit_this_hit"):
+                g["message"] = "\u26a1 CRIT! x%.1f \u2014 " % CONFIG["crit"]["mult"] + g["message"]
             if g["mode"] == "boss" and g.get("boss_telegraph"):
                 g["boss_telegraph"] = 0
                 g["boss_pending_dmg"] = 0
@@ -1305,7 +1354,7 @@ class GameHandler(BaseHTTPRequestHandler):
                 g = action_explore(g)
                 resp['state'] = g
             elif action == 'answer' and g:
-                g = action_answer(g, req.get('answer', ''), req.get('choice'))
+                g = action_answer(g, req.get('answer', ''), req.get('choice'), req.get('response_time'))
                 resp['state'] = g
             elif action == 'potion' and g:
                 g = action_potion(g)
@@ -1315,6 +1364,9 @@ class GameHandler(BaseHTTPRequestHandler):
                 resp['state'] = g
             elif action == 'fork' and g:
                 g = action_fork(g, req.get('side', 'left'))
+                resp['state'] = g
+            elif action == 'defend' and g:
+                g = action_defend(g)
                 resp['state'] = g
             elif action == 'shop' and g:
                 g = action_shop(g, req.get('choice', '4'))
