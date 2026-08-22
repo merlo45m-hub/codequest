@@ -942,8 +942,8 @@ async function api(action,params={}){
   try{
     const res=await fetch('/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const data=await res.json();
-    if(data.sid){SID=data.sid;try{localStorage.setItem('cq_sid',SID);}catch(e){}}else if(action==='start'){try{localStorage.removeItem('cq_sid');}catch(e){}savedSID=null;}
-    if(data.state){onStateChange(state,data.state);state=data.state;if(state.rooms_cleared!=null)saveBest(state.rooms_cleared,state.level);render()}
+    if(data.sid){SID=data.sid;try{localStorage.setItem('cq_sid',SID);}catch(e){}}else if(action==='start'){try{localStorage.removeItem('cq_sid');localStorage.removeItem('cq_save');}catch(e){}savedSID=null;}
+    if(data.state){onStateChange(state,data.state);state=data.state;if(state.rooms_cleared!=null)saveBest(state.rooms_cleared,state.level);try{localStorage.setItem('cq_save',JSON.stringify(state));}catch(e){}render()}
     else if(data.error){console.error('API error:',data.error)}
   }catch(e){console.error('API error:',e);if(ui)ui.innerHTML+='<div class="msg msg-miss">Connection error — is the server running?</div>'}
 }
@@ -1027,7 +1027,7 @@ function render(){
 <div class="diff-btn ${selDiff==='hard'?'sel':''}" onclick="selDiff='hard';render()">Legend<br>13-15</div>
 </div>
 <button class="btn btn-begin" onclick="api('start',{name:document.getElementById('name').value||'Hero',difficulty:selDiff})">⚔️ Begin Adventure</button>
-${savedSID?'<div style="margin-top:6px"><button class="btn btn-success clickable" style="font-size:0.85em;width:100%" onclick="resumeGame()">▶️ Resume Saved Run</button></div>':''}
+${hasLocalSave()?'<div style="margin-top:6px"><button class="btn btn-success clickable" style="font-size:0.85em;width:100%" onclick="continueGame()">▶️ Continue (Room '+localSaveRoom()+')</button></div>':''}${savedSID?'<div style="margin-top:4px"><button class="btn btn-secondary clickable" style="font-size:0.8em;width:100%" onclick="resumeGame()">↺ Resume Server Run</button></div>':''}
 <div style="margin-top:6px;display:flex;gap:5px"><button class="btn btn-secondary clickable" style="font-size:0.78em;flex:1" onclick="toggleMusic()">${musicOn?'🔊 Music: On':'🔇 Music: Off'}</button><button class="btn btn-secondary clickable" style="font-size:0.78em;flex:1" onclick="showSettings=true;render()">⚙️ Settings</button></div>
 <div style="margin-top:6px"><button class="btn btn-info clickable" style="font-size:0.78em;width:100%" onclick="showHelp=true;render()">❓ How to Play</button></div>
 <div style="text-align:center;font-size:0.72em;color:#ffd54f;margin-top:4px">🏆 Best Run: Room ${bestRun.rooms} (Lv ${bestRun.level})</div>
@@ -1136,6 +1136,10 @@ panel+=`<button class="btn btn-primary clickable" onclick="doAnswer()">Submit</b
 function doAnswer(){const v=document.getElementById('answer').value;if(v)api('answer',{answer:v,choice:selSpell||0})}
 function doShop(c){api('shop',{choice:c})}
 function resumeGame(){if(!savedSID)return;SID=savedSID;api('resume').then(()=>{}).catch(()=>{});}
+function hasLocalSave(){try{return !!localStorage.getItem('cq_save');}catch(e){return false;}}
+function localSaveRoom(){try{return (JSON.parse(localStorage.getItem('cq_save')||'{}').rooms_cleared||0)+1;}catch(e){return 0;}}
+function continueGame(){try{const st=JSON.parse(localStorage.getItem('cq_save'));if(!st)return;state=st;SID=null;savedSID=null;gameMode='play';if(st.mode==='title'||!st.mode){state.mode='explore';}render();api('restore',{state:st}).then(d=>{}).catch(()=>{});}catch(e){console.error(e);}}
+
 function clearSave(){try{localStorage.removeItem('cq_sid');}catch(e){}savedSID=null;render();}
 function badgeRow(){const m={firstblood:'🩸',streak:'🔥',puzzle:'💻',explorer:'🗺️',champion:'👑'};let s='';for(const k in m){if(badges[k])s+=m[k];}return s||'—';}
 function shareVictory(){

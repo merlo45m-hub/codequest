@@ -15,6 +15,7 @@ import random
 import os
 import time
 import math
+import uuid
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
@@ -198,6 +199,13 @@ def action_start(name, difficulty):
         g["story_stage"] = stage
     g["message"] = f"Welcome, {g['name']}! Press EXPLORE to begin your adventure!"
     return sid, g
+
+def action_restore(state):
+    """Re-seed a game from a full client-saved state (survives server restart)."""
+    g=dict(state)
+    sid=str(uuid.uuid4())
+    GAMES[sid]=g
+    return sid,g
 
 def action_explore(g):
     if g["mode"] in ("battle", "boss", "puzzle", "shop", "fork"):
@@ -1137,6 +1145,16 @@ class GameHandler(BaseHTTPRequestHandler):
             elif action == 'shop' and g:
                 g = action_shop(g, req.get('choice', '4'))
                 resp['state'] = g
+            elif action == 'restore':
+                st=(req.get('state') or (req.get('params') or {}).get('state'))
+                if st and isinstance(st,dict):
+                    sid,g=action_restore(st)
+                    resp['sid']=sid
+                    resp['state']=g
+                    try:localStorage_ignore=0
+                    except:pass
+                else:
+                    resp['error']='No state'
             elif action == 'resume':
                 if g:
                     resp['sid'] = sid
