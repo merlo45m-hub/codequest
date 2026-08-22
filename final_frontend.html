@@ -110,6 +110,7 @@ let bossIntro=0;
 let bgOffset=0;
 let monsterDeath=0;
 let pHurt=0, mHurt=0, pDeath=0, playerDead=false;  // hurt/death animation timers
+function addShake(mag,frames){shakeMag=Math.max(shakeMag,mag);shakeTime=Math.max(shakeTime,frames);}
 let lowHpPulse=0;
 let levelUpText="";
 let levelUpTextLife=0;
@@ -657,8 +658,10 @@ function spawnParticles(x,y,color,count){
     particles.push({x,y,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd-1,life:1,color,size:2+Math.random()*4});
   }
 }
-function spawnDmg(x,y,amount,who){
-  dmgNums.push({x,y,vy:-2,life:1,txt:'-'+amount,color:who==='player'?'#ff5252':'#69f0ae',size:18+Math.min(amount,20)});
+function spawnDmg(x,y,amount,who,heavy){
+  const big=amount>=20;const sz=(heavy||big)?26+Math.min(amount,30):18+Math.min(amount,16);
+  const drift=(Math.random()-0.5)*1.4;  // directional variance
+  dmgNums.push({x:x+drift*6,y,vy:-2.4-drift*0.4,life:1,txt:'-'+(heavy&&who==='player'?'⚠':'')+amount,color:who==='player'?(heavy?'#ff1744':'#ff5252'):(heavy?'#fff176':'#69f0ae'),size:sz,pop:1,crit:(heavy||big)});
 }
 function spawnHeal(x,y,amount){
   dmgNums.push({x,y,vy:-2,life:1,txt:'+'+amount,color:'#2ecc71',size:16});
@@ -720,12 +723,16 @@ function drawParticles(){
 }
 function drawDmgNums(){
   for(let i=dmgNums.length-1;i>=0;i--){
-    const d=dmgNums[i];d.y+=d.vy;d.vy*=0.95;d.life-=0.015;
+    const d=dmgNums[i];d.y+=d.vy;d.vy*=0.94;d.life-=0.014;
+    if(d.pop>0)d.pop-=0.12;  // scale-in pop
     if(d.life<=0){dmgNums.splice(i,1);continue}
-    ctx.globalAlpha=d.life;ctx.fillStyle=d.color;ctx.font='bold '+d.size+'px system-ui';
-    ctx.textAlign='center';ctx.strokeStyle='#000';ctx.lineWidth=3;
-    ctx.strokeText(d.txt,d.x,d.y);ctx.fillText(d.txt,d.x,d.y);
-    ctx.globalAlpha=1;
+    const sc=1+(d.pop>0?d.pop*0.6:0);
+    ctx.save();ctx.translate(d.x,d.y);ctx.scale(sc,sc);
+    ctx.globalAlpha=Math.min(1,d.life*1.4);ctx.textAlign='center';
+    if(d.crit){ctx.shadowColor=d.color;ctx.shadowBlur=12;}
+    ctx.font='bold '+d.size+'px system-ui';ctx.lineWidth=3;ctx.strokeStyle='#000';
+    ctx.strokeText(d.txt,0,0);ctx.fillStyle=d.color;ctx.fillText(d.txt,0,0);
+    ctx.restore();
   }
 }
 function drawFlash(){
@@ -1137,14 +1144,17 @@ function onStateChange(prev,curr){
   if((curr.mode==='battle'||curr.mode==='boss')&&prev.mode!=='battle'&&prev.mode!=='boss'){monsterEnter=1;attackAnim=0;attackAnimWho=null}
   // Player damage
   if(curr.hp<prev.hp){
-    shakeTime=10;shakeMag=10;flashColor='#ff0000';flashAlpha=0.4;pHitFlash=1;pHurt=1;
-    spawnDmg(W*0.25,H*0.38,prev.hp-curr.hp,'player');
+    const dmg=prev.hp-curr.hp;const heavy=dmg>=18;
+    addShake(heavy?16:9, heavy?16:9);flashColor='#ff0000';flashAlpha=heavy?0.55:0.35;pHitFlash=1;pHurt=1;if(heavy)hitStop=Math.min(8,3+Math.floor(dmg/10));
+    spawnDmg(W*0.25,H*0.38,dmg,'player',heavy);
     spawnParticles(W*0.25,H*0.42,'#ff5252',25);sfxHurt();
     attackAnim=1;attackAnimWho='monster';
   }
   // Monster damage
   if(prev.monster&&curr.monster&&curr.monster.hp<prev.monster.hp){
-    spawnDmg(W*0.72,H*0.38,prev.monster.hp-curr.monster.hp,'monster');
+    const dmg=prev.monster.hp-curr.monster.hp;const heavy=dmg>=22||curr.streak>=3;
+    addShake(heavy?14:8, heavy?14:8);if(heavy)hitStop=Math.min(7,2+Math.floor(dmg/12));
+    spawnDmg(W*0.72,H*0.38,dmg,'monster',heavy);
     spawnParticles(W*0.72,H*0.42,'#ffd54f',30);sfxHit();mHurt=1;
     attackAnim=1;attackAnimWho='player';
     swoosh.push({x:W*0.5,y:H*0.45,life:1,color:curr.streak>=3?'#ff416c':'#4dd0e1'});
@@ -1179,9 +1189,9 @@ function onStateChange(prev,curr){
   // Wrong answer
   if(curr.message_type==='miss'&&prev.mode==='battle'){sfxWrong()}
   // Boss intro
-  if(curr.mode==='boss'&&prev.mode!=='boss'){bossIntro=1;sfxBoss();shakeTime=24;shakeMag=12;spawnShockwave(W*0.5,H*0.45,'#9b59b6');for(let i=0;i<20;i++)spawnParticles(W*0.5,H*0.45,'#9b59b6',20)}
+  if(curr.mode==='boss'&&prev.mode!=='boss'){bossIntro=1;sfxBoss();addShake(13,22);spawnShockwave(W*0.5,H*0.45,'#9b59b6');for(let i=0;i<20;i++)spawnParticles(W*0.5,H*0.45,'#9b59b6',20)}
   // Death
-  if(curr.mode==='gameover'){sfxDeath();shakeTime=20;shakeMag=15;flashColor='#ff0000';flashAlpha=0.6;playerDead=true;pDeath=1;pHurt=1}
+  if(curr.mode==='gameover'){sfxDeath();addShake(16,20);flashColor='#ff0000';flashAlpha=0.6;playerDead=true;pDeath=1;pHurt=1}
   // Shop enter
   if(curr.mode==='shop'&&prev.mode!=='shop'){sfxShop()}
   // Heal
