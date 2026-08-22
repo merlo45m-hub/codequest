@@ -1163,7 +1163,7 @@ class GameHandler(BaseHTTPRequestHandler):
             resp = {}
 
             if action == 'start':
-                sid, g = action_start(req.get('name'), req.get('difficulty'))
+                sid, g = action_start(req.get('name'), req.get('difficulty'), req.get('class'))
                 resp['sid'] = sid
                 resp['state'] = g
             elif action == 'explore' and g:
