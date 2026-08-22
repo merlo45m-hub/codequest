@@ -1083,6 +1083,18 @@ function drawBattleScene(cy){
     const pc=state.boss_phase===1?'#b388ff':state.boss_phase===2?'#ff7043':'#ff1744';
     ctx.save();ctx.textAlign='center';ctx.font='bold 13px system-ui';ctx.fillStyle=pc;ctx.fillText('PHASE '+state.boss_phase+(state.boss_phase>1?' — ENRAGED!':''),W*0.72,cy-50);ctx.restore();
   }
+  // BOSS DODGE WINDOW (FSM windup): prompt player to answer right to dodge
+  if(gameMode==='boss'&&state.boss_telegraph){
+    const pulse=0.55+0.45*Math.sin(animTime*14);
+    ctx.save();ctx.textAlign='center';
+    ctx.globalAlpha=pulse;ctx.fillStyle='#ff1744';ctx.font='bold 26px system-ui';
+    ctx.fillText('\u26a1 DODGE!',W*0.72,cy-78);
+    ctx.globalAlpha=1;ctx.fillStyle='#ffd54f';ctx.font='bold 12px system-ui';
+    ctx.fillText('Answer RIGHT to dodge the strike!',W*0.72,cy-62);
+    ctx.restore();
+    ctx.save();ctx.globalAlpha=pulse*0.6;ctx.strokeStyle='#ff1744';ctx.lineWidth=4;
+    ctx.beginPath();ctx.arc(mEnterX,my,60+Math.sin(animTime*10)*4,0,Math.PI*2);ctx.stroke();ctx.restore();
+  }
   // Enemy attack telegraph
   if(mAttacking){ctx.save();ctx.globalAlpha=0.6+0.4*Math.sin(animTime*20);ctx.fillStyle='#ff1744';ctx.font='bold 22px system-ui';ctx.textAlign='center';ctx.fillText('INCOMING',mx,my-70);ctx.restore();}
 }
