@@ -89,6 +89,50 @@ CLASSES={
  "healer":  {"name":"Healer","glyph":"H","color":"#06b6d4","emoji":"+","desc":"Support. Regen 6hp/turn +1 potion. Special GREAT HEAL: +40% hp.","hp":100,"atk":8,"spell_mult":1.0,"special":"great_heal"},
 }
 SPECIAL_NAMES={"overload":"OVERLOAD","bulwark":"BULWARK","multishot":"MULTISHOT","great_heal":"GREAT HEAL"}
+
+# CENTRALIZED TUNING CONFIG (ARCH #2: no magic numbers in logic)
+CONFIG = {
+    "damage": {
+        "rand_min": 0, "rand_max": 5,
+        "streak_threshold": 3, "streak_bonus_per": 2,
+        "special_mult": {"overload": 2.0, "multishot": 2.0},
+        "bulwark_heal_frac": 0.30, "great_heal_frac": 0.40,
+        "min_damage": 1,
+    },
+    "combat": {
+        "hero_iframe_turns": 0,
+        "boss_telegraph_turns": 1,
+        "boss_active_frames": 1,
+    },
+    "pools": {"max_particles": 400, "max_projectiles": 64, "max_shockwaves": 24},
+    "boss": {"phase2_ratio": 0.50, "phase3_ratio": 0.25},
+}
+
+# PURE COMBAT FORMULAS (no mutation -> unit-testable)
+def calc_spell_damage(attack, spell_mult, special_mult, streak, cfg=None):
+    c = cfg or CONFIG
+    base = attack + random.randint(c["damage"]["rand_min"], c["damage"]["rand_max"])
+    dmg = int(round(base * spell_mult * special_mult))
+    if streak >= c["damage"]["streak_threshold"]:
+        dmg += streak * c["damage"]["streak_bonus_per"]
+    return max(c["damage"]["min_damage"], dmg)
+
+def resolve_special(special, armed, ready, max_hp, cfg=None):
+    c = cfg or CONFIG
+    out = {"consume": False, "dmg_mult": 1.0, "heal": 0, "message": "", "message_type": "special"}
+    if not (armed and ready):
+        return out
+    if special in c["damage"]["special_mult"]:
+        out["dmg_mult"] = c["damage"]["special_mult"][special]
+        out["message"] = "%s! Spell x%dx!" % (SPECIAL_NAMES.get(special, special).upper(), int(out["dmg_mult"]))
+        out["consume"] = True
+    elif special == "bulwark":
+        h = int(max_hp * c["damage"]["bulwark_heal_frac"])
+        out["heal"] = h; out["message"] = "BULWARK! +%d HP, braced!" % h; out["consume"] = True
+    elif special == "great_heal":
+        h = int(max_hp * c["damage"]["great_heal_frac"])
+        out["heal"] = h; out["message"] = "GREAT HEAL! +%d HP!" % h; out["consume"] = True
+    return out
 BOSSES={
  1:{"id":"goblin_king","name":"Goblin King","emoji":"⾝","biome":"Green Tunnels","hp":220,"atk":28,"xp":300,"color":"#2ecc71","mechanic":"adds","draw":"goblin","taunt":"The Goblin King blocks the path!"},
  3:{"id":"frost_warden","name":"Frost Warden","emoji":"❄","biome":"Frozen Depths","hp":320,"atk":34,"xp":420,"color":"#5dade2","mechanic":"chill","draw":"frost","taunt":"The Frost Warden awakens!"},
@@ -310,33 +354,34 @@ def action_answer(g, answer, choice=None):
     if g["mode"] == "battle" or g["mode"] == "boss":
         prob = g["current_problem"]
         if answer.lower() == prob["a"].lower():
-            base = g["attack"] + random.randint(0, 5)
             sm = g.get("choices") and g["choices"][int(choice)]["mult"] if (g.get("choices") and choice not in (None,"")) else 1.0
             sm = sm if sm else 1.0
-            dmg = int(base * sm * g.get("spell_mult",1.0))
-            if g.get("special_armed") and g.get("special_ready") and g.get("special")=="overload":
-                dmg*=2; g["special_ready"]=False; g["message"]="OVERLOAD! Spell x2!"; g["message_type"]="special"
-            elif g.get("special_armed") and g.get("special_ready") and g.get("special")=="bulwark":
-                g["bulwark_active"]=True; g["special_ready"]=False; heal=int(g["max_hp"]*0.3); g["hp"]=min(g["max_hp"],g["hp"]+heal); g["message"]=f"BULWARK! +{heal} HP, braced!"; g["message_type"]="special"
-            elif g.get("special_armed") and g.get("special_ready") and g.get("special")=="multishot":
-                dmg*=2; g["special_ready"]=False; g["message"]="MULTISHOT! Double hit!"; g["message_type"]="special"
-            elif g.get("special_armed") and g.get("special_ready") and g.get("special")=="great_heal":
-                heal=int(g["max_hp"]*0.4); g["hp"]=min(g["max_hp"],g["hp"]+heal); g["special_ready"]=False; g["message"]=f"GREAT HEAL! +{heal} HP!"; g["message_type"]="special"
+            sp = resolve_special(g.get("special"), g.get("special_armed"), g.get("special_ready"), g["max_hp"])
+            dmg = calc_spell_damage(g["attack"], sm, sp["dmg_mult"], g["streak"])
+            if sp["consume"]:
+                g["special_ready"] = False
+                if sp["heal"]:
+                    g["hp"] = min(g["max_hp"], g["hp"] + sp["heal"])
+                    if g.get("special") == "bulwark":
+                        g["bulwark_active"] = True
+                g["message"] = sp["message"]; g["message_type"] = "special"
             ch = g.get("choices")
-            if ch and choice is not None:
-                ci = choice
-                if isinstance(ci, int) and 0 <= ci < len(ch):
-                    dmg = int(round(dmg * ch[ci]["mult"]))
-                    g["last_spell"] = ch[ci]["name"]
+            if ch not in (None, ""):
+                try:
+                    ci = int(choice)
+                    if 0 <= ci < len(ch):
+                        g["last_spell"] = ch[ci]["name"]
+                except (ValueError, TypeError):
+                    pass
             g["streak"] += 1
             g["best_streak"] = max(g["best_streak"], g["streak"])
-            g["math_solved"] += 1
-            if g["streak"] >= 3:
-                bonus = g["streak"] * 2
+            g["math_solved"] = g.get("math_solved", 0) + 1
+            if g["streak"] >= CONFIG["damage"]["streak_threshold"]:
+                bonus = g["streak"] * CONFIG["damage"]["streak_bonus_per"]
                 dmg += bonus
-                g["message"] = f"🔥 STREAK x{g['streak']}! +{bonus} bonus!"
+                g["message"] = "🔥 STREAK x%d! +%d bonus!" % (g["streak"], bonus)
             else:
-                g["message"] = f"✅ Correct! {dmg} damage!"
+                g["message"] = "✅ Correct! %d damage!" % dmg
             g["monster"]["hp"] -= dmg
             if g["mode"] == "boss" and g["monster"]["hp"] <= 0 and g["story_stage"] < 5:
                 is_final = g["monster"].get("boss_id") == "crystal_titan"
