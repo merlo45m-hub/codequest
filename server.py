@@ -311,10 +311,8 @@ def clamp_hp(g):
     Applied on every state that leaves the server (damage, heal, level-up, shop)."""
     if g.get("max_hp") is None:
         return g
-    if g["hp"] > g["max_hp"]:
-        g["hp"] = g["max_hp"]
-    if g["hp"] < 0:
-        g["hp"] = 0
+    currentHp = g["hp"]
+    g["hp"] = min(max(0, currentHp), g["max_hp"])
     return g
 
 def check_levelup(g):

@@ -1345,7 +1345,7 @@ async function api(action,params={}){
     const res=await fetch('/api',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const data=await res.json();
     if(data.sid){SID=data.sid;try{localStorage.setItem('cq_sid',SID);}catch(e){}}else if(action==='start'){try{localStorage.removeItem('cq_sid');localStorage.removeItem('cq_save');}catch(e){}savedSID=null;}
-    if(data.state){onStateChange(state,data.state);state=data.state;if(state&&state.max_hp!=null){if(state.hp>state.max_hp)state.hp=state.max_hp;if(state.hp<0)state.hp=0;}if(state.rooms_cleared!=null)saveBest(state.rooms_cleared,state.level);try{localStorage.setItem('cq_save',JSON.stringify(state));}catch(e){}render()}
+    if(data.state){onStateChange(state,data.state);state=data.state;if(state&&state.max_hp!=null){const _ch=state.hp;state.hp=Math.min(Math.max(0,_ch),state.max_hp);}if(state.rooms_cleared!=null)saveBest(state.rooms_cleared,state.level);try{localStorage.setItem('cq_save',JSON.stringify(state));}catch(e){}render()}
     else if(data.error){console.error('API error:',data.error)}
   }catch(e){console.error('API error:',e);if(ui)ui.innerHTML+='<div class="msg msg-miss">Connection error — is the server running?</div>'}
 }
