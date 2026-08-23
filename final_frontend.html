@@ -113,7 +113,7 @@ const ui=document.getElementById('ui');
 let W=480,H=800;
 let SID=null,state=null,lastState=null;
 let selSpell=0;
-let mcMode=false;  // multiple-choice toggle for faster mobile play (persisted)
+let multipleChoiceEnabled=false;  // multiple-choice mode flag (persisted)
 let storyScene=0;
 let lastStoryStage=0;
 let particles=[],dmgNums=[],shakeTime=0,shakeMag=0,flashColor=null,flashAlpha=0;
@@ -190,8 +190,8 @@ function setMusicBiome(b){if(!b||b===currentMusicBiome)return;if(musicOn){startM
 function stopMusic(){if(musicNodes){try{musicNodes.pad.gain.linearRampToValueAtTime(0,audioCtx.currentTime+0.5);}catch(e){} musicNodes=null;}}
 function toggleMusic(){settings.music=!settings.music;musicOn=settings.music;if(musicOn){initAudio();startMusic(curBiome);}else stopMusic();saveSettings();render();}
 function saveSettings(){try{localStorage.setItem('cq_settings',JSON.stringify(settings));}catch(e){}}
-function loadSettings(){try{const s=localStorage.getItem('cq_settings');if(s){const o=JSON.parse(s);if(o&&typeof o==='object'){settings=Object.assign({music:false,sfx:true,reducedMotion:false},o);musicOn=settings.music;}}else{musicOn=settings.music;}}catch(e){}try{const m=localStorage.getItem('cq_mcmode');if(m==='1')mcMode=true;}catch(e){}}
-function saveMcMode(){try{localStorage.setItem('cq_mcmode',mcMode?'1':'0');}catch(e){}}
+function loadSettings(){try{const s=localStorage.getItem('cq_settings');if(s){const o=JSON.parse(s);if(o&&typeof o==='object'){settings=Object.assign({music:false,sfx:true,reducedMotion:false},o);musicOn=settings.music;}}else{musicOn=settings.music;}}catch(e){}try{const m=localStorage.getItem('cq_mc');if(m==='1')multipleChoiceEnabled=true;}catch(e){}}
+function saveMCE(){try{localStorage.setItem('cq_mc',multipleChoiceEnabled?'1':'0');}catch(e){}}
 function toggleSetting(k){settings[k]=!settings[k];if(k==='music'){musicOn=settings.music;if(musicOn){initAudio();startMusic();}else stopMusic();}saveSettings();render();}
 function sfxHit(){beep(800,0.08,'sawtooth',0.2);setTimeout(()=>beep(400,0.1,'sawtooth',0.15),60)}
 function sfxHurt(){beep(200,0.15,'sawtooth',0.25);setTimeout(()=>beep(150,0.2,'sawtooth',0.2),80)}
@@ -1528,7 +1528,7 @@ function chargeChipHTML(state){
     }
     panel+=`<div class="math-box"><div class="math-cat">${p.cat}</div><div class="math-q">${p.q}</div></div>`;
     // ANSWER INPUT: render EXACTLY ONE method, chosen by state (problem has MC options -> buttons, else text)
-    const useMc = !!(p && p.mc && p.mc.length);
+    const useMc = !!(multipleChoiceEnabled && p && p.mc && p.mc.length);
     panel+=`<div class="thumb-cluster">`;
     if(useMc){
       // Multiple-choice: option buttons submit directly (mcAnswer). No text input, no spell Attack button.
