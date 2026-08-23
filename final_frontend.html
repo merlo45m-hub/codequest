@@ -180,9 +180,35 @@ function sfxDeath(){[400,300,200,100].forEach((f,i)=>setTimeout(()=>beep(f,0.2,'
 function sfxBoss(){[100,80,60,40].forEach((f,i)=>setTimeout(()=>beep(f,0.3,'sawtooth',0.25),i*200));vibe([80,40,80,40,200])}
 function sfxFootstep(){beep(80+Math.random()*20,0.03,'square',0.05)}
 function sfxShop(){beep(880,0.06,'sine',0.15);setTimeout(()=>beep(1100,0.06,'sine',0.1),50)}
+// AUDIO & JUICE: synthesized spell-cast + button-click SFX (Web Audio API)
+function sfxCast(type){
+  if(!audioCtx||!settings.sfx)return;
+  const t=audioCtx.currentTime;
+  const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+  const tp=(type==='fire')?'sawtooth':(type==='ice')?'sine':(type==='lightning')?'square':'triangle';
+  const f0=(type==='ice')?700:(type==='lightning')?500:(type==='fire')?240:380;
+  const f1=(type==='ice')?1500:(type==='lightning')?1400:(type==='fire')?520:900;
+  o.type=tp;o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(f1,t+0.13);
+  g.gain.setValueAtTime(0.18,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.15);
+  o.connect(g);g.connect(audioCtx.destination);o.start(t);o.stop(t+0.16);
+}
+function sfxClick(){
+  if(!audioCtx||!settings.sfx)return;
+  const t=audioCtx.currentTime;
+  const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+  o.type='square';o.frequency.setValueAtTime(1250,t);o.frequency.exponentialRampToValueAtTime(700,t+0.03);
+  g.gain.setValueAtTime(0.10,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.04);
+  o.connect(g);g.connect(audioCtx.destination);o.start(t);o.stop(t+0.05);
+}
 
 function resize(){const r=document.getElementById('game').getBoundingClientRect();W=r.width;H=r.height;cv.width=W;cv.height=H}
 window.addEventListener('resize',resize);resize();
+// AUDIO & JUICE: play a synthesized click on any UI button; init audio on first gesture (autoplay policy)
+document.addEventListener('pointerdown',function(e){
+  try{initAudio();}catch(_){}
+  const el=e.target.closest&&e.target.closest('button, .clickable, .spell-btn, .chip, .set-row, .btn');
+  if(el)sfxClick();
+},true);
 let torchFlicker=[];
 for(let i=0;i<6;i++)torchFlicker.push(0.7+Math.random()*0.3);
 
@@ -967,6 +993,7 @@ function spellBurst(x,y,color,type){
   }
 }
 function castSpell(color,type,mult){
+  sfxCast(type);
   const t=type||'arcane';
   if(spells.length>=CLIENT_CONFIG.max_projectiles)return;
   const proj={x:W*0.25,y:H*0.45,tx:W*0.72,ty:H*0.42,life:1,color:color||'#4dd0e1',type:t,size:t==='lightning'?3:5,mult:mult||1};
