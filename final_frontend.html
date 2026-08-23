@@ -1025,24 +1025,30 @@ function drawAmbientMotes(){
   }
   ctx.globalAlpha=1;
 }
-let bloomCanvas=null;
+let bloomCanvas=null,bloomScale=0.25,bloomFrame=0,bloomDisabled=false;
 function drawBloom(){
-  // POST-PROCESS BLOOM: bright-pass blur additively composited for a luminous, lit look
+  if(bloomDisabled)return;            // perf fallback: never let bloom freeze the game
+  bloomFrame++;
+  if(bloomFrame%2!==0)return;          // throttle: recompute every 2nd frame
+  // POST-PROCESS BLOOM (cheap): bright-pass on a quarter-res buffer, then upscaled additive composite.
+  // Full-res ctx.filter blur every frame was a mobile fps-killer -> downscale fixes it.
   try{
-    if(!bloomCanvas){bloomCanvas=document.createElement('canvas');bloomCanvas.width=W;bloomCanvas.height=H;}
+    if(!bloomCanvas){bloomCanvas=document.createElement('canvas');bloomCanvas.width=Math.max(1,Math.floor(W*bloomScale));bloomCanvas.height=Math.max(1,Math.floor(H*bloomScale));}
+    const bw=bloomCanvas.width,bh=bloomCanvas.height;
     const b=bloomCanvas.getContext('2d');
-    b.clearRect(0,0,W,H);
-    b.drawImage(cvs,0,0);                 // copy current frame
+    b.clearRect(0,0,bw,bh);
+    b.drawImage(cvs,0,0,bw,bh);                 // downscale copy (cheap)
     b.globalCompositeOperation='multiply';
-    b.fillStyle='rgba(60,60,80,1)';b.fillRect(0,0,W,H); // keep only bright pixels
+    b.fillStyle='rgba(70,70,90,1)';b.fillRect(0,0,bw,bh); // keep only bright pixels
     b.globalCompositeOperation='source-over';
     ctx.save();
     ctx.globalCompositeOperation='lighter';
-    ctx.globalAlpha=0.5;
-    if('filter' in ctx){ctx.filter='blur(7px)';}
-    ctx.drawImage(bloomCanvas,0,0);
+    ctx.globalAlpha=0.55;
+    if('filter' in ctx){ctx.filter='blur(3px)';}
+    ctx.imageSmoothingEnabled=true;
+    ctx.drawImage(bloomCanvas,0,0,W,H);          // upscale (GPU-assisted, cheap)
     ctx.filter='none';ctx.restore();
-  }catch(e){}
+  }catch(e){bloomDisabled=true;}                 // if anything throws, disable rather than freeze
 }
 function drawComboTexts(){
   for(let i=comboTexts.length-1;i>=0;i--){const c=comboTexts[i];c.life-=0.012;c.y-=0.6;
