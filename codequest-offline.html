@@ -1225,6 +1225,28 @@ function loop(){
   requestAnimationFrame(loop);
 }
 
+function drawBattleFlow(cy){
+  if(!(gameMode==='battle'||gameMode==='boss')||!state||!state.monster)return;
+  const px=W*0.25, mx=W*0.72, mEnterX=mx+monsterEnter*W*0.5;
+  const mAttacking = attackAnim>0 && attackAnimWho==='monster';
+  const windup = (gameMode==='boss'&&state.boss_telegraph);
+  const yourTurn = !windup && !mAttacking;
+  const ring = (x,y,col)=>{const pul=0.5+0.5*Math.sin(animTime*6);ctx.save();ctx.globalAlpha=0.25+0.35*pul;ctx.strokeStyle=col;ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(x,y+44,40+6*pul,12+3*pul,0,0,Math.PI*2);ctx.stroke();ctx.restore();};
+  if(yourTurn) ring(px,cy,'#4dd0e1');
+  else ring(mEnterX,cy,'#ff1744');
+  let label, col, sub;
+  if(windup){label='\u26a1 ENEMY WINDUP';col='#ff1744';sub='Answer RIGHT to dodge the '+(state.current_move||'strike')+'!';}
+  else if(mAttacking){label='\u26a1 ENEMY STRIKE';col='#ff5252';sub='Brace!';}
+  else {label='\u2702 YOUR TURN';col='#4dd0e1';sub='Solve to strike — fast = CRIT!';}
+  ctx.save();ctx.textAlign='center';
+  ctx.fillStyle='rgba(0,0,0,0.5)';ctx.fillRect(W*0.2,cy-110,W*0.6,30);
+  ctx.globalAlpha=0.6+0.4*Math.sin(animTime*(windup?16:6));
+  ctx.fillStyle=col;ctx.font='bold 17px system-ui';
+  ctx.fillText(label,W*0.5,cy-89);
+  ctx.globalAlpha=1;ctx.fillStyle='#ccc';ctx.font='bold 11px system-ui';
+  ctx.fillText(sub,W*0.5,cy-74);
+  ctx.restore();
+}
 function drawBattleScene(cy){
   if(!state||!state.monster)return;
   const px=W*0.25,py=cy;
@@ -1264,6 +1286,7 @@ function drawBattleScene(cy){
   }
   // Enemy attack telegraph
   if(mAttacking){ctx.save();ctx.globalAlpha=0.6+0.4*Math.sin(animTime*20);ctx.fillStyle='#ff1744';ctx.font='bold 22px system-ui';ctx.textAlign='center';ctx.fillText('INCOMING',mx,my-70);ctx.restore();}
+  drawBattleFlow(cy);
 }
 
 loop();
