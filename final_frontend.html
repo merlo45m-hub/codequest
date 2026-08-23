@@ -695,10 +695,12 @@ function spawnParticles(x,y,color,count){
     particles.push({x,y,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd-1,life:1,color,size:2+Math.random()*4});
   }
 }
-function spawnDmg(x,y,amount,who,heavy){
-  const big=amount>=20;const sz=(heavy||big)?26+Math.min(amount,30):18+Math.min(amount,16);
+function spawnDmg(x,y,amount,who,heavy,crit){
+  const big=amount>=20;const sz=(heavy||big||crit)?26+Math.min(amount,30):18+Math.min(amount,16);
   const drift=(Math.random()-0.5)*1.4;  // directional variance
-  dmgNums.push({x:x+drift*6,y,vy:-2.4-drift*0.4,life:1,txt:'-'+(heavy&&who==='player'?'⚠':'')+amount,color:who==='player'?(heavy?'#ff1744':'#ff5252'):(heavy?'#fff176':'#69f0ae'),size:sz,pop:1,crit:(heavy||big)});
+  // COLOR CODING: yellow=crit, red=player damage, white=normal hit
+  const col = crit ? '#ffeb3b' : (who==='player' ? (heavy?'#ff1744':'#ff5252') : '#ffffff');
+  dmgNums.push({x:x+drift*6,y,vy:-2.4-drift*0.4,life:1,txt:'-'+(crit?'⚡':(heavy&&who==='player'?'⚠':''))+amount,color:col,size:sz,pop:1,crit:(crit||heavy||big)});
 }
 function spawnHeal(x,y,amount){
   dmgNums.push({x,y,vy:-2,life:1,txt:'+'+amount,color:'#2ecc71',size:16});
@@ -1003,6 +1005,10 @@ function spellBurst(x,y,color,type){
 }
 function castSpell(color,type,mult){
   sfxCast(type);
+  // IMPACT FEEDBACK: particle burst at the hero's hand on cast
+  const bc=color||'#4dd0e1';
+  for(let i=0;i<14;i++){const a=Math.random()*Math.PI*2,sp=1.5+Math.random()*3.5;spawnParticles(W*0.25,H*0.45,bc,1);}
+  spawnShockwave(W*0.25,H*0.45,bc);
   const t=type||'arcane';
   if(spells.length>=CLIENT_CONFIG.max_projectiles)return;
   const proj={x:W*0.25,y:H*0.45,tx:W*0.72,ty:H*0.42,life:1,color:color||'#4dd0e1',type:t,size:t==='lightning'?3:5,mult:mult||1};
@@ -1245,7 +1251,7 @@ function onStateChange(prev,curr){
   if(prev.monster&&curr.monster&&curr.monster.hp<prev.monster.hp){
     const dmg=prev.monster.hp-curr.monster.hp;const heavy=dmg>=22||curr.streak>=3;
     addShake(heavy?12:7, heavy?12:7);hitStop=Math.max(hitStop,3);if(heavy)hitStop=Math.max(hitStop,Math.min(5,1+Math.floor(dmg/16)));
-    spawnDmg(W*0.72,H*0.38,dmg,'monster',heavy);
+    spawnDmg(W*0.72,H*0.38,dmg,'monster',heavy,curr.crit_this_hit);
     spawnParticles(W*0.72,H*0.42,'#ffd54f',30);sfxHit();mHurt=1;
     attackAnim=1;attackAnimWho='player';
     swoosh.push({x:W*0.5,y:H*0.45,life:1,color:curr.streak>=3?'#ff416c':'#4dd0e1'});
