@@ -1527,19 +1527,19 @@ function chargeChipHTML(state){
       }
     }
     panel+=`<div class="math-box"><div class="math-cat">${p.cat}</div><div class="math-q">${p.q}</div></div>`;
-    // MULTIPLE-CHOICE toggle + 4-button mode (optional, faster mobile play)
-    panel+=`<div style="text-align:center;margin:3px 0"><button class="btn btn-secondary clickable" style="font-size:0.7em;padding:3px 8px" onclick="mcMode=!mcMode;saveMcMode();render()">🔢 Multiple Choice: ${mcMode?'ON':'OFF'}</button></div>`;
+    // ANSWER INPUT: render EXACTLY ONE method, chosen by state (problem has MC options -> buttons, else text)
+    const useMc = !!(p && p.mc && p.mc.length);
     panel+=`<div class="thumb-cluster">`;
-    if(mcMode && p.mc && p.mc.length){
+    if(useMc){
+      // Multiple-choice: option buttons submit directly (mcAnswer). No text input, no spell Attack button.
       panel+=`<div class="mc-grid">`;
       p.mc.forEach((opt,i)=>{panel+=`<button class="mc-btn clickable" style="border-color:#4dd0e1" onclick="mcAnswer(${i})">${opt}</button>`;});
       panel+=`</div>`;
-    }
-    if(!(mcMode && p.mc && p.mc.length)){
+      panel+=`<div style="text-align:center;font-size:0.66em;color:#9be7ff;margin:2px 0">Tap an option above to answer</div>`;
+    }else{
+      // Free-form: text input + spell Attack button (doAnswer reads the typed value + selected spell).
       panel+=`<input type="text" id="answer" inputmode="numeric" pattern="[0-9\-]*" placeholder="Your answer..." onkeypress="if(event.key==='Enter')bufferedDoAnswer()">`;
       panel+=`<button class="btn btn-danger clickable" onclick="bufferedAttack()">${state.choices?state.choices[selSpell].name:'Attack!'}</button>`;
-    }else{
-      panel+=`<div style="text-align:center;font-size:0.66em;color:#9be7ff;margin:2px 0">Tap an option above to answer</div>`;
     }
     panel+=`</div>`;
     if(state.last_spell)panel+=`<div style="font-size:0.62em;color:#ffd54f;text-align:center;margin-top:2px">Last: ${state.last_spell}</div>`;
