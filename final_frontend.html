@@ -131,6 +131,7 @@ let savedSID=null;
 let settings={music:false,sfx:true,reducedMotion:false};
 let showSettings=false;
 let showMenu=false;
+let showQuestLog=false;
 let showHelp=false;
 let showHint=false;
 let roomTrans=0,roomTransDir=1;
@@ -1352,7 +1353,7 @@ function onStateChange(prev,curr){
   if(!prev){gameMode=curr.mode||'explore';return}
   // Mode change = room transition
   if(curr.mode!==prev.mode){roomTrans=1}
-  if(curr.story_stage>lastStoryStage && curr.story_stage<5){storyScene=1;}
+  if(curr.story_stage>lastStoryStage){storyScene=1;recordClue(curr.story_stage);}
   lastStoryStage=curr.story_stage||0;
   if((curr.mode==='battle'||curr.mode==='boss')&&prev.mode!=='battle'&&prev.mode!=='boss'){monsterEnter=1;attackAnim=0;attackAnimWho=null;monsterHpDisp=1}
   // Player damage
@@ -1588,7 +1589,28 @@ panel+=`<button class="btn btn-primary clickable" onclick="doAnswer()">Submit</b
     mp+=`<button class="btn btn-info clickable" style="width:100%;margin:4px 0" onclick="showMenu=false;showSettings=true;render()">⚙️ Settings</button>`;
     mp+=`<button class="btn btn-info clickable" style="width:100%;margin:4px 0" onclick="showMenu=false;showHelp=true;render()">❓ How to Play</button>`;
     mp+=`<button class="btn btn-secondary clickable" style="width:100%;margin:4px 0" onclick="mainMenu()">🏠 Main Menu</button>`;
+    mp+=`<button class="btn btn-info clickable" style="width:100%;margin:4px 0" onclick="showMenu=false;showQuestLog=true;render()">📖 Quest Log</button>`;
     ui.innerHTML=`<div class="panel clickable">${mp}</div>`;
+    return;
+  }
+  if(showQuestLog){
+    const stg=(state&&state.story_stage)||0;
+    const OBJECTIVES={0:"Find Master Ordella. Recover the Knowledge Crystal. Bring lost knowledge home.",1:"Opening Quest — survive the Blue Caverns and reach the Green Tunnels.",2:"Crack the locked code-door. Push into the Frozen Depths.",3:"Endure the ice. Reach the Titan’s chamber.",4:"Defeat the Crystal Titan. Claim the Knowledge Crystal.",5:"You are Champion — return with Ordella and the Crystal."};
+    const UNLOCKS={2:"🔓 Code-Smith — read the locked doors’ runes (coding puzzles reveal a hint).",3:"🔓 Frost Ward — spell power grows in the depths.",4:"⚡ Climax: win, and the great forgetting ends.",5:"🔓 Resolution: the Knowledge Crystal restored. Ordella freed."};
+    const stories=[{stage:0,title:"🏔️ The Crystal Caverns",text:"Beneath the realm lies the Crystal Caverns — a living labyrinth of math-forged crystal. The old mages sealed the world’s knowledge in the Knowledge Crystal. Its feral equation-guardians claimed the depths."},{stage:1,title:"🔵 The Blue Caverns — First Trial",text:"The opening trial: prove your mind against the feral equations. A clue to Ordella’s fate waits here."},{stage:2,title:"🟢 The Green Tunnels — The Locked Door",text:"A locked door of living code blocks the path. Ordella’s riddle is carved on its frame."},{stage:3,title:"❄️ The Frozen Depths — The Long Dark",text:"The light fails; the Titan’s presence weighs on you. The long middle of the quest."},{stage:4,title:"💎 THE CRYSTAL TITAN — Climax",text:"The Titan tests your mind. Win, and the great forgetting ends."},{stage:5,title:"👑 VICTORY — Resolution",text:"The Crystal restored, Ordella freed, lost knowledge returns to the surface."}];
+    let ql=`<div style="text-align:center;font-size:1.05em;font-weight:bold;color:#ffd54f;margin-bottom:6px">📖 Quest Log</div>`;
+    // Acts overview
+    ql+=`<div class="story-box"><div class="story-t">🎯 Current Objective</div><div class="story-x">${OBJECTIVES[stg]||OBJECTIVES[0]}</div></div>`;
+    if(UNLOCKS[stg])ql+=`<div class="story-box" style="border-left-color:#4dd0e1;background:rgba(77,208,225,0.08)"><div class="story-t" style="color:#4dd0e1">Progression</div><div class="story-x">${UNLOCKS[stg]}</div></div>`;
+    // Story so far (beats reached)
+    ql+=`<div style="font-size:0.8em;font-weight:bold;color:#b39ddb;margin:8px 0 3px">📜 Story So Far</div>`;
+    stories.forEach(s=>{ if(s.stage<=stg) ql+=`<div class="story-box"><div class="story-t">${s.title}</div><div class="story-x">${s.text}</div></div>`; });
+    // Ordella clue trail
+    ql+=`<div style="font-size:0.8em;font-weight:bold;color:#ff8a80;margin:8px 0 3px">🔎 Ordella’s Trail</div>`;
+    if(discoveredClues.length){ discoveredClues.forEach(c=>{ ql+=`<div class="story-box" style="border-left-color:#ff8a80;background:rgba(255,138,128,0.08)"><div class="story-x">${c}</div></div>`; }); }
+    else ql+=`<div class="story-x" style="color:#888">No clues found yet — descend deeper.</div>`;
+    ql+=`<button class="btn btn-primary clickable" style="width:100%;margin-top:8px" onclick="showQuestLog=false;render()">◀️ Back</button>`;
+    ui.innerHTML=`<div class="panel clickable" style="max-height:78vh;overflow:auto">${ql}</div>`;
     return;
   }
   ui.innerHTML=hud+`<div class="panel clickable">${panel}</div>`;
@@ -1596,6 +1618,12 @@ panel+=`<button class="btn btn-primary clickable" onclick="doAnswer()">Submit</b
   if(ans)setTimeout(()=>ans.focus(),100);
 }
 
+// QUEST LOG: discovered Ordella clues (persisted) + clue map
+let discoveredClues=[];
+try{const _c=localStorage.getItem('cq_clues');if(_c)discoveredClues=JSON.parse(_c);}catch(e){}
+function saveClues(){try{localStorage.setItem('cq_clues',JSON.stringify(discoveredClues));}catch(e){}}
+const CLUES={1:"A clue to Ordella\u2019s fate waits in the blue halls.",2:"Ordella\u2019s hand is carved on the locked door \u2014 a riddle she left for whoever followed.",3:"Deeper still, the Titan\u2019s shadow falls across Ordella\u2019s last known path."};
+function recordClue(stage){if(stage&&CLUES[stage]&&!discoveredClues.includes(CLUES[stage])){discoveredClues.push(CLUES[stage]);saveClues();}}
 function doAnswer(){const v=document.getElementById('answer').value;if(v){const rt=(performance.now()-questionStart)/1000;api('answer',{answer:v,choice:selSpell||0,response_time:Math.max(0,Math.min(rt,10))})}}
 function mcAnswer(i){try{const p=state&&state.current_problem;if(!p||!p.mc||p.mc[i]===undefined)return;const rt=(performance.now()-questionStart)/1000;api('answer',{answer:String(p.mc[i]),choice:selSpell||0,mc_index:i,response_time:Math.max(0,Math.min(rt,10))});}catch(e){console.error('mcAnswer',e);}}
 // INPUT BUFFER (120ms): forgiving input so a tap fired slightly before the problem is ready still lands
