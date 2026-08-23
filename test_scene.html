@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>CodeQuest — Repro Test Scene (Graphics + Opening Story)</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;background:#0a0a1a;overflow:hidden;font-family:system-ui,Arial,sans-serif}
+  #game{position:relative;width:100%;height:100%;min-height:100%}
+  #cv{display:block;width:100%;height:100%}
+  #note{position:absolute;top:6px;left:6px;color:#9fb;font-size:11px;opacity:.7;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="game"><canvas id="cv"></canvas><div id="note">REPRO TEST SCENE — graphics + opening story</div></div>
+<script>
+// ============ MINIMAL REPRO TEST SCENE ============
+// Goal: prove (a) the canvas graphics pipeline renders, and
+// (b) the opening story sequence surfaces on-screen.
+// Mirrors CodeQuest's immediate-mode draw style. Zero external assets.
+const cv=document.getElementById('cv');
+const ctx=cv.getContext('2d');
+let W=480,H=800;
+function resize(){
+  const g=document.getElementById('game');
+  const r=g?g.getBoundingClientRect():null;
+  let w=r&&r.width?r.width:0,h=r&&r.height?r.height:0;
+  if(!w)w=window.innerWidth||480; if(!h)h=window.innerHeight||800;
+  W=Math.max(1,w);H=Math.max(1,h);cv.width=W;cv.height=H;
+}
+window.addEventListener('resize',resize);resize();
+
+// ---- opening story (Act 1 hook: motivation + inciting incident) ----
+const STORY={
+  title:"🏔️ The Crystal Caverns",
+  lines:[
+    "You are an apprentice archivist of the Surface Library.",
+    "Your mentor, Master Ordella, descended years ago to recover",
+    "the Knowledge Crystal — and never returned.",
+    "",
+    "Now the great forgetting accelerates: letters unmake themselves,",
+    "and the cavern's glow has gone dark at the surface.",
+    "",
+    "Her last living-crystal map cracked and spelled one word: HELP.",
+    "You take up her quest."
+  ]
+};
+
+// ---- graphics: starfield / cavern parallax ----
+let stars=[];for(let i=0;i<60;i++)stars.push({x:Math.random(),y:Math.random(),r:Math.random()*1.5+0.3,t:Math.random()*6});
+
+function drawCavernBg(t){
+  // deep gradient
+  let g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#161034');g.addColorStop(1,'#070612');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // stars
+  for(const s of stars){
+    const a=0.5+0.5*Math.sin(t*1.5+s.t);
+    ctx.globalAlpha=0.4+0.6*a;ctx.fillStyle='#fff';
+    ctx.beginPath();ctx.arc(s.x*W,s.y*H*0.5,s.r,0,7);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+  // cavern walls (jagged silhouette)
+  ctx.fillStyle='#0d0a22';ctx.beginPath();ctx.moveTo(0,H);
+  const peaks=7;for(let i=0;i<=peaks;i++){const x=i/peaks*W;const y=H*0.62-Math.abs(Math.sin(i*1.7))*H*0.18;ctx.lineTo(x,y);}
+  ctx.lineTo(W,H);ctx.closePath();ctx.fill();
+  // torches
+  for(const tx of [W*0.16,W*0.84]){
+    const ty=H*0.6;
+    const fl=0.6+0.4*Math.sin(t*8+tx);
+    let fg=ctx.createRadialGradient(tx,ty,2,tx,ty,26);
+    fg.addColorStop(0,'rgba(255,200,90,'+(0.9*fl)+')');fg.addColorStop(1,'rgba(255,150,40,0)');
+    ctx.fillStyle=fg;ctx.beginPath();ctx.arc(tx,ty,26,0,7);ctx.fill();
+  }
+}
+
+// ---- graphics: hero figure (vector, no assets) ----
+function drawHero(cx,cy,scl){
+  ctx.save();ctx.translate(cx,cy);ctx.scale(scl,scl);
+  // body
+  ctx.fillStyle='#5b8def';ctx.beginPath();ctx.roundRect(-14,-30,28,46,8);ctx.fill();
+  // head
+  ctx.fillStyle='#ffd9a8';ctx.beginPath();ctx.arc(0,-42,12,0,7);ctx.fill();
+  // staff with glowing tip
+  ctx.strokeStyle='#caa46a';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(16,-46);ctx.lineTo(16,16);ctx.stroke();
+  let gg=ctx.createRadialGradient(16,-50,1,16,-50,12);gg.addColorStop(0,'#9fe8ff');gg.addColorStop(1,'rgba(120,200,255,0)');
+  ctx.fillStyle=gg;ctx.beginPath();ctx.arc(16,-50,12,0,7);ctx.fill();
+  ctx.restore();
+}
+
+// ---- graphics: opening story panel ----
+function drawStoryPanel(){
+  const px=W*0.08,pw=W*0.84,py=H*0.10,ph=H*0.42;
+  ctx.fillStyle='rgba(10,8,30,0.82)';ctx.strokeStyle='#4dd0e1';ctx.lineWidth=2;
+  ctx.beginPath();ctx.roundRect(px,py,pw,ph,14);ctx.fill();ctx.stroke();
+  ctx.fillStyle='#ffd54f';ctx.font='bold 18px system-ui';ctx.textAlign='center';
+  ctx.fillText(STORY.title, W/2, py+26);
+  ctx.fillStyle='#e6e1ff';ctx.font='14px system-ui';ctx.textAlign='left';
+  let y=py+52;const lh=19;
+  for(const ln of STORY.lines){ if(ln===''){y+=lh*0.5;continue;} ctx.fillText(ln, px+16, y); y+=lh; }
+}
+
+// ---- main loop ----
+let t=0,start=performance.now();
+function loop(){
+  if(W<2||H<2)resize();
+  t=(performance.now()-start)/1000;
+  ctx.clearRect(0,0,W,H);
+  drawCavernBg(t);
+  drawHero(W*0.5,H*0.80,1.0+0.02*Math.sin(t*2)); // gentle idle bob
+  drawStoryPanel();
+  requestAnimationFrame(loop);
+}
+loop();
+// expose a probe for automated verification
+window.__reproProbe=function(){
+  const d=ctx.getImageData(0,0,cv.width,cv.height).data;
+  let nb=0;for(let i=0;i<d.length;i+=4){if(d[i]+d[i+1]+d[i+2]>30)nb++;}
+  return {w:cv.width,h:cv.height,nonblackPx:nb,totalPx:d.length/4,
+          storyRendered:document.getElementById('cv')?true:false};
+};
+</script>
+</body>
+</html>
