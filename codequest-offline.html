@@ -57,6 +57,9 @@ canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rend
 .btn-success{background:linear-gradient(135deg,#11998e,#38ef7d);color:#fff}
 .btn-secondary{background:rgba(255,255,255,0.1);color:#ccc}
 .math-box{text-align:center;margin:4px 0}
+.spell-row{display:flex;gap:6px;margin:4px 0}
+.spell-btn{flex:1;border:2px solid #555;border-radius:10px;padding:5px 3px;background:rgba(255,255,255,0.05);text-align:center;cursor:pointer;transition:transform .1s,box-shadow .15s,border-color .15s}
+.spell-btn.sel{transform:scale(1.06);border-width:3px;box-shadow:0 0 14px rgba(255,255,255,0.55),inset 0 0 12px rgba(255,255,255,0.18);background:rgba(255,255,255,0.16)}
 .math-cat{font-size:0.72em;color:#82b1ff;margin-bottom:2px}
 .code-block{background:rgba(0,0,0,0.5);border-radius:8px;padding:8px;margin:5px 0;font-family:monospace;font-size:0.9em;color:#80cbc4}
 .shop-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin:5px 0}
@@ -1480,6 +1483,19 @@ function chargeChipHTML(state){
     const p=state.current_problem;
     if(state.boss_telegraph){
       panel+=`<button class=\"btn btn-special clickable\" onclick=\"api('defend')\" style=\"margin:4px 0;width:100%;font-weight:bold;color:#9be7ff;border-color:#4dd0e1;animation:pulseGlow 0.7s infinite\">🛡 BULWARK — PARRY THE ${state.current_move||'strike'}!</button>`;
+    }
+    if(state.choices){
+      panel+=`<div style="font-size:0.7em;color:#bbb;margin:1px 0 3px">Choose your spell:</div>`;
+      panel+=`<div class="spell-row">`;
+      state.choices.forEach((sp,i)=>{panel+=`<div class="spell-btn clickable ${selSpell===i?'sel':''}" style="border-color:${sp.color};${selSpell===i?'background:'+sp.color+'33':''}" onclick="selSpell=${i};render()"><div style="font-weight:bold;color:${sp.color}">${sp.name}</div><div style="font-size:0.62em;opacity:0.8">x${sp.mult} dmg</div><div style="font-size:0.58em;opacity:0.6">${sp.desc}</div>${selSpell===i?'<div style=\"font-size:0.6em;font-weight:bold;color:#fff;margin-top:2px\">▶ SELECTED</div>':''}</div>`;});
+      panel+=`</div>`;
+      if(state.special_ready){
+        const SNAME={overload:"⚡ OVERLOAD",bulwark:"🛡 BULWARK",multishot:"🏿 MULTISHOT",great_heal:"🌡 GREAT HEAL"}[state.special]||"SPECIAL";
+        panel+=`<button class="btn btn-special clickable" onclick="api('special')" style="margin:4px 0;width:100%;font-weight:bold;color:#ffd54f;border-color:#ffd54f">✦ ${SNAME} READY</button>`;
+      }
+      if((state.charges||0)>=(state.combo_threshold||3)){
+        panel+=`<div style="text-align:center;font-size:0.66em;font-weight:bold;color:#ffd54f;background:rgba(255,213,79,0.14);border:1px solid rgba(255,213,79,0.4);border-radius:8px;padding:3px;margin:3px 0">⚡ CHARGED BUFF — next cast ×1.6 (HOLDING)</div>`;
+      }
     }
     panel+=`<div class="math-box"><div class="math-cat">${p.cat}</div><div class="math-q">${p.q}</div></div>`;
     panel+=`<div class="thumb-cluster">`;
