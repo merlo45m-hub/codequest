@@ -758,7 +758,8 @@ function drawBossIntro(){
   if(bossIntro>0.3){
     const f=Math.min(1,(bossIntro-0.3)*2);
     ctx.globalAlpha=f;
-    ctx.fillStyle='#e74c3c';ctx.font='bold 28px system-ui';ctx.textAlign='center';
+    const bic=(gameMode==='boss'&&state.monster&&state.monster.color)?state.monster.color:'#e74c3c';
+    ctx.fillStyle=bic;ctx.font='bold 28px system-ui';ctx.textAlign='center';
     ctx.strokeStyle='#000';ctx.lineWidth=4;
     ctx.strokeText('BOSS BATTLE',W/2,H/2);
     ctx.fillText('BOSS BATTLE',W/2,H/2);
@@ -1097,7 +1098,7 @@ let spells=[], shockwaves=[];
 function spellBurst(x,y,color,type){
   if(type==='fire'){
     for(let i=0;i<22;i++){const a=-Math.PI/2+(Math.random()-0.5)*1.6;const sp=2+Math.random()*5;particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-1.5,life:1,color:Math.random()<0.5?'#ff7043':'#ffd54f',size:2+Math.random()*4});}
-    spawnShockwave(x,y,color);
+    spawnShockwave(x,y,color);shockwaves.push({x,y,life:1,color:'#fff'});
   }else if(type==='ice'){
     for(let i=0;i<16;i++){const a=Math.random()*Math.PI*2;const sp=3+Math.random()*4;particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:1,color:'#aef',size:2+Math.random()*3});}
     spawnShockwave(x,y,color);shockwaves.push({x,y,life:1,color:'#81d4fa'});
@@ -1123,9 +1124,11 @@ function drawSpells(){
   for(let i=spells.length-1;i>=0;i--){const s=spells[i];
     const dx=s.tx-s.x, dy=s.ty-s.y; const dist=Math.hypot(dx,dy);
     if(s.ay)s.vy+=s.ay;
+    if(!s.trail)s.trail=[]; s.trail.push({x:s.x,y:s.y}); if(s.trail.length>6)s.trail.shift();
     s.x+=dx*0.25; s.y+=(dy*0.25)+(s.vy||0); s.life-=0.06;
     if(s.life<=0||dist<8){spells.splice(i,1); spellBurst(s.tx,s.ty,s.color,s.type); continue;}
-    ctx.globalAlpha=0.9;ctx.fillStyle=s.color;ctx.shadowColor=s.color;ctx.shadowBlur=14;
+    for(let t=0;t<s.trail.length;t++){const tp=s.trail[t];ctx.globalAlpha=0.12*(t/s.trail.length);ctx.fillStyle=s.color;ctx.beginPath();ctx.arc(tp.x,tp.y,s.size*0.7,0,Math.PI*2);ctx.fill();}
+    ctx.globalAlpha=0.9;ctx.fillStyle=s.color;ctx.shadowColor=s.color;ctx.shadowBlur=20;
     if(s.type==='lightning'){
       ctx.strokeStyle=s.color;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(s.x,s.y);
       for(let k=0;k<3;k++)ctx.lineTo(s.x+(Math.random()-0.5)*10,s.y+(Math.random()-0.5)*10);ctx.stroke();
@@ -1267,12 +1270,18 @@ function drawBattleScene(cy){
   ctx.fillStyle=gameMode==='boss'?'#ff4444':'#ff8a80';ctx.font='bold 11px system-ui';ctx.textAlign='center';
   ctx.fillText(m.name+(gameMode==='boss'?' - BOSS':''),W*0.72,cy-63);
   ctx.fillStyle='#333';ctx.fillRect(W*0.52,cy-55,W*0.4,5);
-  ctx.fillStyle=mPct>0.5?(gameMode==='boss'?'#e74c3c':'#e74c3c'):mPct>0.25?'#f39c12':'#c0392b';
+  const mcol=(gameMode==='boss'&&state.monster&&state.monster.color)?state.monster.color:'#ff8a80';
+  ctx.fillStyle=mPct>0.5?mcol:mPct>0.25?'#f39c12':'#c0392b';
   ctx.fillRect(W*0.52,cy-55,W*0.4*mPct,5);
   // BOSS DODGE WINDOW (FSM windup): show the incoming signature move + dodge prompt
   if(gameMode==='boss'&&state.boss_telegraph){
     const moveName=state.current_move||'strike';
     const pulse=0.55+0.45*Math.sin(animTime*14);
+    const auraR=70+Math.sin(animTime*10)*8; const ag=ctx.createRadialGradient(mEnterX,my,10,mEnterX,my,auraR);
+    ag.addColorStop(0,'rgba(255,23,68,'+(0.35*pulse)+')'); ag.addColorStop(1,'rgba(255,23,68,0)');
+    ctx.save();ctx.fillStyle=ag;ctx.beginPath();ctx.arc(mEnterX,my,auraR,0,Math.PI*2);ctx.fill();
+    ctx.globalAlpha=pulse;ctx.strokeStyle='#ff1744';ctx.lineWidth=6;ctx.beginPath();ctx.arc(mEnterX,my,auraR,(0.5*Math.PI),(0.5+1.5*pulse)*Math.PI);ctx.stroke();
+    ctx.restore();
     ctx.save();ctx.textAlign='center';
     ctx.globalAlpha=pulse;ctx.fillStyle='#ff1744';ctx.font='bold 26px system-ui';
     ctx.fillText('\u26a1 DODGE!',W*0.72,cy-82);
@@ -1281,8 +1290,6 @@ function drawBattleScene(cy){
     ctx.globalAlpha=1;ctx.fillStyle='#ffd54f';ctx.font='bold 12px system-ui';
     ctx.fillText('Answer RIGHT to dodge it!',W*0.72,cy-48);
     ctx.restore();
-    ctx.save();ctx.globalAlpha=pulse*0.6;ctx.strokeStyle='#ff1744';ctx.lineWidth=4;
-    ctx.beginPath();ctx.arc(mEnterX,my,60+Math.sin(animTime*10)*4,0,Math.PI*2);ctx.stroke();ctx.restore();
   }
   // Enemy attack telegraph
   if(mAttacking){ctx.save();ctx.globalAlpha=0.6+0.4*Math.sin(animTime*20);ctx.fillStyle='#ff1744';ctx.font='bold 22px system-ui';ctx.textAlign='center';ctx.fillText('INCOMING',mx,my-70);ctx.restore();}
@@ -1310,7 +1317,7 @@ function onStateChange(prev,curr){
   // Player damage
   if(curr.hp<prev.hp){
     const dmg=prev.hp-curr.hp;const heavy=dmg>=18;
-    addShake(heavy?16:9, heavy?16:9);flashColor='#ff0000';flashAlpha=heavy?0.55:0.35;pHitFlash=1;pHurt=1;if(heavy)hitStop=Math.min(8,3+Math.floor(dmg/10));
+    addShake(heavy?14:7, heavy?14:7);flashColor='#ff0000';flashAlpha=heavy?0.5:0.3;pHitFlash=1;pHurt=1;if(heavy)hitStop=Math.min(5,2+Math.floor(dmg/16));
     spawnDmg(W*0.25,H*0.38,dmg,'player',heavy);
     spawnParticles(W*0.25,H*0.42,'#ff5252',25);sfxHurt();
     attackAnim=1;attackAnimWho='monster';
@@ -1318,7 +1325,7 @@ function onStateChange(prev,curr){
   // Monster damage
   if(prev.monster&&curr.monster&&curr.monster.hp<prev.monster.hp){
     const dmg=prev.monster.hp-curr.monster.hp;const heavy=dmg>=22||curr.streak>=3;
-    addShake(heavy?14:8, heavy?14:8);if(heavy)hitStop=Math.min(7,2+Math.floor(dmg/12));
+    addShake(heavy?12:7, heavy?12:7);if(heavy)hitStop=Math.min(5,1+Math.floor(dmg/16));
     spawnDmg(W*0.72,H*0.38,dmg,'monster',heavy);
     spawnParticles(W*0.72,H*0.42,'#ffd54f',30);sfxHit();mHurt=1;
     attackAnim=1;attackAnimWho='player';
@@ -1356,6 +1363,11 @@ function onStateChange(prev,curr){
   if(curr.message_type==='miss'&&prev.mode==='battle'){sfxWrong()}
   // Boss intro
   if(curr.mode==='boss'&&prev.mode!=='boss'){bossIntro=1;sfxBoss();addShake(13,22);spawnShockwave(W*0.5,H*0.45,'#9b59b6');for(let i=0;i<20;i++)spawnParticles(W*0.5,H*0.45,'#9b59b6',20)}
+  if(curr.mode==='boss'&&prev.mode==='boss'&&(curr.boss_phase||1)>(prev.boss_phase||0)){
+    bossIntro=Math.max(bossIntro,0.8);sfxBoss();addShake(16,20);flashColor='#ff1744';flashAlpha=0.6;
+    spawnCombo('PHASE '+curr.boss_phase+' — ENRAGED!', curr.monster&&curr.monster.color?curr.monster.color:'#ff1744');
+    for(let i=0;i<24;i++)spawnParticles(W*0.72,H*0.45,curr.monster&&curr.monster.color?curr.monster.color:'#ff1744',24);
+  }
   // Death
   if(curr.mode==='gameover'){sfxDeath();addShake(16,20);flashColor='#ff0000';flashAlpha=0.6;playerDead=true;pDeath=1;pHurt=1}
   // Shop enter
