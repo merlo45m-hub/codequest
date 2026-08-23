@@ -91,6 +91,7 @@ let storyScene=0;
 let lastStoryStage=0;
 let particles=[],dmgNums=[],shakeTime=0,shakeMag=0,flashColor=null,flashAlpha=0;
 let dust=[];
+let monsterHpDisp=1;
 // CLIENT POOL CONFIG (ARCH #1: object pooling caps, mirrors server CONFIG["pools"])
 const CLIENT_CONFIG={max_particles:400,max_projectiles:64,max_shockwaves:24};
 function pushCapped(arr,item,cap){if(arr.length<cap)arr.push(item);}
@@ -1182,8 +1183,10 @@ function drawBattleScene(cy){
   ctx.fillText(m.name+(gameMode==='boss'?' - BOSS':''),W*0.72,cy-63);
   ctx.fillStyle='#333';ctx.fillRect(W*0.52,cy-55,W*0.4,5);
   const mcol=(gameMode==='boss'&&state.monster&&state.monster.color)?state.monster.color:'#ff8a80';
-  ctx.fillStyle=mPct>0.5?mcol:mPct>0.25?'#f39c12':'#c0392b';
-  ctx.fillRect(W*0.52,cy-55,W*0.4*mPct,5);
+  monsterHpDisp+=(mPct-monsterHpDisp)*0.12;  // smooth easing (no instant snap)
+  const mFill=Math.max(0,monsterHpDisp);
+  ctx.fillStyle=mFill>0.5?mcol:mFill>0.25?'#f39c12':'#c0392b';
+  ctx.fillRect(W*0.52,cy-55,W*0.4*mFill,5);
   if(gameMode==='boss'&&state.boss_phase){
     const pc=state.boss_phase===1?'#b388ff':state.boss_phase===2?'#ff7043':'#ff1744';
     ctx.save();ctx.textAlign='center';ctx.font='bold 13px system-ui';ctx.fillStyle=pc;ctx.fillText('PHASE '+state.boss_phase+(state.boss_phase>1?' — ENRAGED!':''),W*0.72,cy-50);ctx.restore();
@@ -1238,7 +1241,7 @@ function onStateChange(prev,curr){
   if(curr.mode!==prev.mode){roomTrans=1}
   if(curr.story_stage>lastStoryStage && curr.story_stage<5){storyScene=1;}
   lastStoryStage=curr.story_stage||0;
-  if((curr.mode==='battle'||curr.mode==='boss')&&prev.mode!=='battle'&&prev.mode!=='boss'){monsterEnter=1;attackAnim=0;attackAnimWho=null}
+  if((curr.mode==='battle'||curr.mode==='boss')&&prev.mode!=='battle'&&prev.mode!=='boss'){monsterEnter=1;attackAnim=0;attackAnimWho=null;monsterHpDisp=1}
   // Player damage
   if(curr.hp<prev.hp){
     const dmg=prev.hp-curr.hp;const heavy=dmg>=18;

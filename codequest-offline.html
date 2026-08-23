@@ -241,6 +241,7 @@ let W=480,H=800;
 let SID=null,state=null,lastState=null;
 let particles=[],dmgNums=[],shakeTime=0,shakeMag=0,flashColor=null,flashAlpha=0;
 let dust=[];
+let monsterHpDisp=1;
 const CLIENT_CONFIG={max_particles:400,max_projectiles:64,max_shockwaves:24};
 let pHitFlash=0;
 let badges={};let badgeMsg='';let badgeMsgLife=0;
@@ -1280,8 +1281,10 @@ function drawBattleScene(cy){
   ctx.fillText(m.name+(gameMode==='boss'?' - BOSS':''),W*0.72,cy-63);
   ctx.fillStyle='#333';ctx.fillRect(W*0.52,cy-55,W*0.4,5);
   const mcol=(gameMode==='boss'&&state.monster&&state.monster.color)?state.monster.color:'#ff8a80';
-  ctx.fillStyle=mPct>0.5?mcol:mPct>0.25?'#f39c12':'#c0392b';
-  ctx.fillRect(W*0.52,cy-55,W*0.4*mPct,5);
+  monsterHpDisp+=(mPct-monsterHpDisp)*0.12;  // smooth easing (no instant snap)
+  const mFill=Math.max(0,monsterHpDisp);
+  ctx.fillStyle=mFill>0.5?mcol:mFill>0.25?'#f39c12':'#c0392b';
+  ctx.fillRect(W*0.52,cy-55,W*0.4*mFill,5);
   // BOSS DODGE WINDOW (FSM windup): show the incoming signature move + dodge prompt
   if(gameMode==='boss'&&state.boss_telegraph){
     const moveName=state.current_move||'strike';
@@ -1326,7 +1329,7 @@ function onStateChange(prev,curr){
   if(!prev){gameMode=curr.mode||'explore';return}
   // Mode change = room transition
   if(curr.mode!==prev.mode){roomTrans=1}
-  if((curr.mode==='battle'||curr.mode==='boss')&&prev.mode!=='battle'&&prev.mode!=='boss'){monsterEnter=1;attackAnim=0;attackAnimWho=null}
+  if((curr.mode==='battle'||curr.mode==='boss')&&prev.mode!=='battle'&&prev.mode!=='boss'){monsterEnter=1;attackAnim=0;attackAnimWho=null;monsterHpDisp=1}
   // Player damage
   if(curr.hp<prev.hp){
     const dmg=prev.hp-curr.hp;const heavy=dmg>=18;
