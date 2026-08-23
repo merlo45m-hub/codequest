@@ -1510,7 +1510,7 @@ function chargeChipHTML(state){
       p.mc.forEach((opt,i)=>{panel+=`<button class="mc-btn clickable" style="border-color:#4dd0e1" onclick="mcAnswer(${i})">${opt}</button>`;});
       panel+=`</div>`;
     }
-    panel+=`<input type="text" id="answer" placeholder="Your answer..." onkeypress="if(event.key==='Enter')bufferedDoAnswer()">`;
+    panel+=`<input type="text" id="answer" inputmode="numeric" pattern="[0-9\-]*" placeholder="Your answer..." onkeypress="if(event.key==='Enter')bufferedDoAnswer()">`;
     panel+=`<button class="btn btn-danger clickable" onclick="bufferedAttack()">${state.choices?state.choices[selSpell].name:'Attack!'}</button>`;
     panel+=`</div>`;
     if(state.last_spell)panel+=`<div style="font-size:0.62em;color:#ffd54f;text-align:center;margin-top:2px">Last: ${state.last_spell}</div>`;
@@ -1574,6 +1574,7 @@ panel+=`<button class="btn btn-primary clickable" onclick="doAnswer()">Submit</b
 }
 
 function doAnswer(){const v=document.getElementById('answer').value;if(v){const rt=(performance.now()-questionStart)/1000;api('answer',{answer:v,choice:selSpell||0,response_time:Math.max(0,Math.min(rt,10))})}}
+function mcAnswer(i){try{const p=state&&state.current_problem;if(!p||!p.mc||p.mc[i]===undefined)return;const rt=(performance.now()-questionStart)/1000;api('answer',{answer:String(p.mc[i]),choice:selSpell||0,mc_index:i,response_time:Math.max(0,Math.min(rt,10))});}catch(e){console.error('mcAnswer',e);}}
 // INPUT BUFFER (120ms): forgiving input so a tap fired slightly before the problem is ready still lands
 let bufferedAction=null,bufferedAt=0;
 const INPUT_BUFFER_MS=120;
