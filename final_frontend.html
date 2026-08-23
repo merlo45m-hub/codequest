@@ -30,7 +30,8 @@ canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rend
 .bar.xp{height:10px}
 .barfillx{height:100%;background:linear-gradient(90deg,#7c4dff,#b388ff);transition:width .4s;border-radius:7px}
 .barnum{width:auto;color:#ccc;text-shadow:0 1px 2px #000;min-width:54px;text-align:right}
-.panel{position:absolute;left:6px;right:6px;bottom:6px;background:rgba(8,8,24,0.95);border-radius:12px;padding:10px;border:1px solid rgba(100,100,255,0.15);backdrop-filter:blur(8px)}
+.panel{position:absolute;left:6px;right:6px;bottom:6px;max-height:calc(100vh - 72px);overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;background:rgba(8,8,24,0.95);border-radius:12px;padding:8px 10px;border:1px solid rgba(100,100,255,0.15);backdrop-filter:blur(8px)}
+.panel>*{flex:0 0 auto}
 .panel.title-screen{top:50%;transform:translateY(-50%);bottom:auto;text-align:center;background:linear-gradient(160deg,rgba(20,12,45,0.92),rgba(8,8,24,0.95));border:1px solid rgba(124,77,255,0.35);box-shadow:0 0 40px rgba(124,77,255,0.25)}
 .game-logo{font-size:1.7em;font-weight:bold;margin:0 0 2px;background:linear-gradient(90deg,#4dd0e1,#b388ff,#ff8a80);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:1px;animation:logopulse 2.4s ease-in-out infinite}
 @keyframes logopulse{0%,100%{filter:drop-shadow(0 0 6px rgba(124,77,255,0.5));transform:scale(1)}50%{filter:drop-shadow(0 0 18px rgba(124,77,255,0.9));transform:scale(1.03)}}
@@ -47,7 +48,7 @@ canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rend
 .panel input:focus{border-color:#0575E6;outline:none}
 .btn{display:block;width:100%;padding:12px;min-height:48px;border:none;border-radius:10px;font-size:1em;font-weight:bold;cursor:pointer;margin:3px 0;transition:transform .1s}
 .btn:active{transform:scale(.96)}
-.thumb-cluster{position:sticky;bottom:0;background:linear-gradient(180deg,rgba(8,8,24,0) 0%,rgba(8,8,24,0.98) 30%);padding:6px 0 2px;margin-top:4px}
+.thumb-cluster{position:sticky;bottom:0;margin-top:auto;background:linear-gradient(180deg,rgba(8,8,24,0) 0%,rgba(8,8,24,0.98) 30%);padding:6px 0 4px;padding-bottom:calc(4px + env(safe-area-inset-bottom))}
 .mc-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:4px 0}
 .mc-btn{width:100%;min-height:46px;padding:10px 6px;border-radius:10px;border:2px solid #4dd0e1;background:rgba(77,208,225,0.12);color:#e0f7fa;font-size:1.05em;font-weight:bold;cursor:pointer}
 .mc-btn:active{transform:scale(.96)}
@@ -64,9 +65,8 @@ canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rend
 .class-row{display:flex;gap:5px;margin:4px 0;flex-wrap:wrap}.class-btn{flex:1;min-width:64px;border:2px solid #555;border-radius:8px;padding:5px 3px;background:rgba(255,255,255,0.05);text-align:center}.class-btn.sel{background:rgba(255,255,255,0.18);box-shadow:0 0 8px rgba(255,213,79,0.5)}.btn-special{background:rgba(255,213,79,0.12)}
 .spell-btn{flex:1;border:2px solid #555;border-radius:10px;padding:5px 3px;background:rgba(255,255,255,0.05);text-align:center;cursor:pointer;transition:transform .1s}
 .spell-btn.sel{transform:scale(1.04);box-shadow:0 0 10px rgba(255,255,255,0.3)}
-.math-box{text-align:center;margin:6px 0}
+.math-box{text-align:center;margin:4px 0}
 .math-cat{font-size:0.72em;color:#82b1ff;margin-bottom:2px}
-.math-q{font-size:1.25em;font-weight:bold}
 .code-block{background:rgba(0,0,0,0.5);border-radius:8px;padding:8px;margin:5px 0;font-family:monospace;font-size:0.9em;color:#80cbc4}
 .shop-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin:5px 0}
 .shop-item{background:rgba(255,255,255,0.06);border-radius:8px;padding:8px;text-align:center;cursor:pointer;transition:transform .2s}
@@ -1403,7 +1403,7 @@ function chargeChipHTML(state){
       panel+=`<button class=\"btn btn-special clickable\" onclick=\"api('defend')\" style=\"margin:4px 0;width:100%;font-weight:bold;color:#9be7ff;border-color:#4dd0e1;animation:pulseGlow 0.7s infinite\">🛡 BULWARK — PARRY THE ${state.current_move||'strike'}!</button>`;
     }
     if(state.choices){
-      panel+=`<div style="font-size:0.7em;color:#bbb;margin:2px 0">Choose your spell:</div>`;
+      panel+=`<div style="font-size:0.7em;color:#bbb;margin:1px 0 3px">Choose your spell:</div>`;
       panel+=`<div class="spell-row">`;
       state.choices.forEach((sp,i)=>{panel+=`<div class="spell-btn clickable ${selSpell===i?'sel':''}" style="border-color:${sp.color};${selSpell===i?'background:'+sp.color+'33':''}" onclick="selSpell=${i};render()"><div style="font-weight:bold;color:${sp.color}">${sp.name}</div><div style="font-size:0.62em;opacity:0.8">x${sp.mult} dmg</div><div style="font-size:0.58em;opacity:0.6">${sp.desc}</div></div>`;});
       panel+=`</div>`;
