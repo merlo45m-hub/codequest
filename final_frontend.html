@@ -1535,8 +1535,12 @@ function chargeChipHTML(state){
       p.mc.forEach((opt,i)=>{panel+=`<button class="mc-btn clickable" style="border-color:#4dd0e1" onclick="mcAnswer(${i})">${opt}</button>`;});
       panel+=`</div>`;
     }
-    panel+=`<input type="text" id="answer" inputmode="numeric" pattern="[0-9\-]*" placeholder="Your answer..." onkeypress="if(event.key==='Enter')bufferedDoAnswer()">`;
-    panel+=`<button class="btn btn-danger clickable" onclick="bufferedAttack()">${state.choices?state.choices[selSpell].name:'Attack!'}</button>`;
+    if(!(mcMode && p.mc && p.mc.length)){
+      panel+=`<input type="text" id="answer" inputmode="numeric" pattern="[0-9\-]*" placeholder="Your answer..." onkeypress="if(event.key==='Enter')bufferedDoAnswer()">`;
+      panel+=`<button class="btn btn-danger clickable" onclick="bufferedAttack()">${state.choices?state.choices[selSpell].name:'Attack!'}</button>`;
+    }else{
+      panel+=`<div style="text-align:center;font-size:0.66em;color:#9be7ff;margin:2px 0">Tap an option above to answer</div>`;
+    }
     panel+=`</div>`;
     if(state.last_spell)panel+=`<div style="font-size:0.62em;color:#ffd54f;text-align:center;margin-top:2px">Last: ${state.last_spell}</div>`;
   }else if(state.mode==='puzzle'){
