@@ -1187,20 +1187,23 @@ function drawBattleScene(cy){
   const mType=m.name.toLowerCase().split(' ')[0];
   const mEnterX=mx+monsterEnter*W*0.5;
   if(monsterDeath>0){ctx.globalAlpha=monsterDeath;ctx.translate(0,monsterDeath*20);drawMonster(mEnterX,my,1.8,mType,mHit,mAttacking,gameMode==='boss'?state.boss_phase:0,(gameMode==='boss'&&state.monster)?state.monster.draw:null);ctx.globalAlpha=1;}else{drawMonster(mEnterX,my,1.8,mType,mHit,mAttacking,gameMode==='boss'?state.boss_phase:0,(gameMode==='boss'&&state.monster)?state.monster.draw:null);}
-  // Monster HP bar
+  // Monster HP bar (distinct red, with explicit numeric HP)
   const mPct=Math.max(0,m.hp/m.max_hp);
-  ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(W*0.5,cy-75,W*0.45,20);
+  ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillRect(W*0.5,cy-80,W*0.45,40);
   ctx.fillStyle=gameMode==='boss'?'#ff4444':'#ff8a80';ctx.font='bold 11px system-ui';ctx.textAlign='center';
-  ctx.fillText(m.name+(gameMode==='boss'?' - BOSS':''),W*0.72,cy-63);
-  ctx.fillStyle='#333';ctx.fillRect(W*0.52,cy-55,W*0.4,5);
+  ctx.fillText((gameMode==='boss'?'☠ ':'👾 ')+m.name+(gameMode==='boss'?' - BOSS':''),W*0.72,cy-66);
+  ctx.fillStyle='#333';ctx.fillRect(W*0.52,cy-55,W*0.4,6);
   const mcol=(gameMode==='boss'&&state.monster&&state.monster.color)?state.monster.color:'#ff8a80';
   monsterHpDisp+=(mPct-monsterHpDisp)*0.12;  // smooth easing (no instant snap)
   const mFill=Math.max(0,monsterHpDisp);
   ctx.fillStyle=mFill>0.5?mcol:mFill>0.25?'#f39c12':'#c0392b';
-  ctx.fillRect(W*0.52,cy-55,W*0.4*mFill,5);
+  ctx.fillRect(W*0.52,cy-55,W*0.4*mFill,6);
+  // explicit enemy HP numeric value
+  ctx.fillStyle='#fff';ctx.font='bold 10px system-ui';ctx.textAlign='center';
+  ctx.fillText('ENEMY HP '+m.hp+'/'+m.max_hp,W*0.72,cy-46);
   if(gameMode==='boss'&&state.boss_phase){
     const pc=state.boss_phase===1?'#b388ff':state.boss_phase===2?'#ff7043':'#ff1744';
-    ctx.save();ctx.textAlign='center';ctx.font='bold 13px system-ui';ctx.fillStyle=pc;ctx.fillText('PHASE '+state.boss_phase+(state.boss_phase>1?' — ENRAGED!':''),W*0.72,cy-50);ctx.restore();
+    ctx.save();ctx.textAlign='center';ctx.font='bold 12px system-ui';ctx.fillStyle=pc;ctx.fillText('PHASE '+state.boss_phase+(state.boss_phase>1?' — ENRAGED!':''),W*0.72,cy-40);ctx.restore();
   }
   // BOSS DODGE WINDOW (FSM windup): show the incoming signature move + dodge prompt
   if(gameMode==='boss'&&state.boss_telegraph){
@@ -1373,7 +1376,7 @@ function chargeChipHTML(state){
   hud+=`<span class="chip fold clickable" style="background:rgba(124,77,255,0.4)" onclick="toggleMusic()">${musicOn?'🔊':'🔇'}</span>`;
   hud+=`<span class="chip fold" style="background:rgba(255,215,0,0.25);color:#ffd54f">🏆 R${bestRun.rooms}</span>`;
   hud+=`</div>`;
-  hud+=`<div class="barwrap"><div class="barlabel">HP</div><div class="bar"><div class="barfill ${hpCls}" style="width:${Math.max(0,hpPct)}%"></div></div><span class="barnum">${state.hp}/${state.max_hp}</span></div>`;
+  hud+=`<div class="barwrap"><div class="barlabel" style="color:#69f0ae">YOU</div><div class="bar"><div class="barfill ${hpCls}" style="width:${Math.max(0,hpPct)}%"></div></div><span class="barnum">HP ${state.hp}/${state.max_hp}</span></div>`;
   hud+=`<div class="barwrap"><div class="barlabel" style="color:#b388ff">XP</div><div class="bar xp"><div class="barfillx" style="width:${xpPct}%"></div></div><span class="barnum">${state.xp}/${state.xp_to_next}</span></div>`;
   let panel='';
   if(state.message)panel+=`<div class="msg msg-${state.message_type}">${state.message}</div>`;
