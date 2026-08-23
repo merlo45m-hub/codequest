@@ -365,8 +365,9 @@ for(let i=0;i<6;i++)torchFlicker.push(0.7+Math.random()*0.3);
 
 function drawPlayer(x,y,scl,hit,attacking,heroClass){
   ctx.save();ctx.translate(x,y);ctx.scale(scl,scl);
-  const breathe=Math.sin(animTime*2.5)*1.5;
-  ctx.translate(0,breathe);
+  const br=Math.sin(animTime*2.5);
+  ctx.scale(1-br*0.04, 1+br*0.05);
+  ctx.translate(0,Math.abs(br)*2);
   if(hit){ctx.translate(Math.sin(animTime*60)*6,0);ctx.filter='brightness(2.2) saturate(2)'}
   if(pHurt>0){const k=pHurt;ctx.translate(-k*10,-k*5);ctx.scale(1-k*0.12,1+k*0.12);ctx.filter='brightness(1.5) saturate(2) hue-rotate(-25deg)';}
   if(playerDead){const d=pDeath;ctx.globalAlpha=Math.max(0,1-d*0.9);ctx.rotate(d*Math.PI/2*0.8);ctx.translate(0,d*14);ctx.scale(1,1-d*0.3);}
@@ -446,6 +447,9 @@ function drawMonster(x,y,scl,type,hit,attacking,phase,draw){
   ctx.save();ctx.translate(x,y);ctx.scale(scl,scl);
   const bob=Math.sin(animTime*1.5+1)*3;
   ctx.translate(0,bob);
+  const mb=Math.sin(animTime*1.5+1);
+  ctx.scale(1-mb*0.05, 1+mb*0.05);
+  if(state&&state.boss_telegraph&&!(state.boss_phase>1)){const cw=Math.sin(animTime*9)*0.05+0.12;ctx.scale(1+cw,1-cw);ctx.translate(0,-cw*10);}
   if(hit){ctx.translate(Math.sin(animTime*50)*5,0);ctx.filter='brightness(2.2) saturate(2)'}
   if(mHurt>0){const k=mHurt;ctx.translate(k*12,-k*4);ctx.scale(1+k*0.1,1-k*0.1);ctx.filter='brightness(1.6) saturate(2) hue-rotate(-25deg)';}
   if(attacking){ctx.translate(-Math.sin(Math.min(attackAnim,1)*Math.PI)*14,0)}
