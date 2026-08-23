@@ -521,6 +521,9 @@ def action_answer(g, answer, choice=None, response_time=None, mc_index=None):
                     ci = int(choice)
                     if 0 <= ci < len(ch):
                         g["last_spell"] = ch[ci]["name"]
+                        # VENOM SPRAY -> apply Poison status (10 dmg/turn for 3 turns)
+                        if ch[ci]["name"] == "Venom Spray" and g.get("monster"):
+                            g["monster"]["poison"] = {"dmg": 10, "turns": 3}
                 except (ValueError, TypeError):
                     pass
             g["streak"] += 1
@@ -553,6 +556,14 @@ def action_answer(g, answer, choice=None, response_time=None, mc_index=None):
                 g["boss_pending_dmg"] = 0
                 g["message"] = "\U0001F938 DODGE! You answer true and leap aside \u2014 " + g["monster"]["name"] + "'s strike misses! " + g["message"]
             g["monster"]["hp"] -= dmg
+            # POISON STATUS: tick damage-over-time on the enemy each successful hit
+            if g.get("monster") and isinstance(g["monster"], dict) and g["monster"].get("poison"):
+                _po = g["monster"]["poison"]
+                g["monster"]["hp"] -= _po["dmg"]
+                g["message"] += " ☠ Poison -%d!" % _po["dmg"]
+                _po["turns"] -= 1
+                if _po["turns"] <= 0:
+                    g["monster"].pop("poison", None)
             if g["mode"] == "boss" and g["monster"]["hp"] <= 0 and g["story_stage"] < 5:
                 is_final = g["monster"].get("boss_id") == "crystal_titan"
                 g["mode"] = "explore"
