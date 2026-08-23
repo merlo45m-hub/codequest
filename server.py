@@ -306,12 +306,24 @@ def get_story_for_room(rooms):
     triggers = {1: 0, 3: 1, 6: 2, 10: 3, 14: 4}
     return triggers.get(rooms)
 
+def clamp_hp(g):
+    """Authoritative guard: player hp can never exceed max_hp, and never drop below 0.
+    Applied on every state that leaves the server (damage, heal, level-up, shop)."""
+    if g.get("max_hp") is None:
+        return g
+    if g["hp"] > g["max_hp"]:
+        g["hp"] = g["max_hp"]
+    if g["hp"] < 0:
+        g["hp"] = 0
+    return g
+
 def check_levelup(g):
     while g["xp"] >= g["xp_to_next"]:
         g["xp"] -= g["xp_to_next"]
         g["level"] += 1
         g["max_hp"] += 20
         g["hp"] = g["max_hp"]
+        clamp_hp(g)
         g["attack"] += 5
         g["potions"] += 1
         g["xp_to_next"] = int(g["xp_to_next"] * 1.5)
@@ -649,6 +661,7 @@ def action_potion(g):
         g["potions"] -= 1
         heal = min(50, g["max_hp"] - g["hp"])
         g["hp"] += heal
+        clamp_hp(g)
         g["message"] = f"🧪 Healed {heal} HP! ({g['potions']} left)"
         g["message_type"] = "heal"
     elif g["potions"] == 0:
@@ -672,6 +685,7 @@ def action_shop(g, choice):
         g["gems"] -= 30
         g["max_hp"] += 15
         g["hp"] += 15
+        clamp_hp(g)
         g["message"] = f"Max HP +15! Now {g['max_hp']}"
     elif choice == "4":
         g["message"] = "Left shop."
@@ -1430,6 +1444,8 @@ class GameHandler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
+            if 'state' in resp and isinstance(resp['state'],dict):
+                clamp_hp(resp['state'])
             self.wfile.write(json.dumps(resp).encode())
         else:
             self.send_response(404)
