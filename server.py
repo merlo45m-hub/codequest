@@ -184,44 +184,73 @@ def gcd(a, b):
         a, b = b, a % b
     return a
 
-def gen_math(difficulty, player_level):
+def make_mc(answer):
+    """Build 4 multiple-choice options (correct + 3 unique distractors) for a numeric answer."""
+    try:
+        val = int(float(answer))
+    except (ValueError, TypeError):
+        return None
+    opts = {val}
+    attempts = 0
+    while len(opts) < 4 and attempts < 200:
+        attempts += 1
+        delta = random.randint(1, max(2, abs(val) // 3 + 2))
+        sign = random.choice([-1, 1, 1])  # bias toward plausible near-misses
+        cand = val + sign * delta
+        if cand >= 0 and cand != val:
+            opts.add(cand)
+    while len(opts) < 4:
+        opts.add(val + len(opts) + 1)
+    opts = list(opts)
+    random.shuffle(opts)
+    return opts
+
+def gen_math(difficulty, player_level, floor=0):
     cfg = DIFFICULTY[difficulty]
-    mx = cfg["max"]
-    types = ["addition", "subtraction"]
-    if player_level >= 2: types.append("multiplication")
-    if player_level >= 3: types.append("division")
-    if player_level >= 4: types.append("algebra")
-    if player_level >= 5 and cfg["frac"]: types.append("fractions")
-    ptype = random.choice(types)
+    # DYNAMIC MATH SCALING: number magnitude grows GRADUALLY with dungeon floor
+    # (depth), avoiding the old hard jump-on-level-up feel. Soft-capped so it stays sane.
+    mx = int(cfg["max"] * (1 + 0.08 * floor))
+    mx = max(5, min(mx, cfg["max"] * 4))
+    # Smooth type blend: a continuous "skill" from level + floor depth, so harder
+    # problem types ramp in gradually instead of switching on at fixed level gates.
+    skill = player_level + 0.4 * floor
+    weights = [("addition", 3.0), ("subtraction", 3.0)]
+    if skill >= 1.2: weights.append(("multiplication", min(3.0, skill - 0.8)))
+    if skill >= 2.2: weights.append(("division", min(3.0, skill - 1.8)))
+    if skill >= 3.2: weights.append(("algebra", min(3.0, skill - 2.8)))
+    if skill >= 4.2 and cfg["frac"]: weights.append(("fractions", min(3.0, skill - 3.8)))
+    types = [w[0] for w in weights]
+    wts = [w[1] for w in weights]
+    ptype = random.choices(types, weights=wts, k=1)[0]
 
     if ptype == "addition":
         a, b = random.randint(1, mx), random.randint(1, mx)
-        return {"q": f"What is {a} + {b}?", "a": str(a+b), "cat": "Addition ➕"}
+        return {"q": f"What is {a} + {b}?", "a": str(a+b), "cat": "Addition ➕", "mc": make_mc(str(a+b))}
     elif ptype == "subtraction":
         a = random.randint(1, mx)
         b = random.randint(1, a if not cfg["neg"] else mx)
-        return {"q": f"What is {a} - {b}?", "a": str(a-b), "cat": "Subtraction ➖"}
+        return {"q": f"What is {a} - {b}?", "a": str(a-b), "cat": "Subtraction ➖", "mc": make_mc(str(a-b))}
     elif ptype == "multiplication":
         a = random.randint(2, min(20, mx//5))
         b = random.randint(2, min(15, mx//10))
-        return {"q": f"What is {a} × {b}?", "a": str(a*b), "cat": "Multiplication ✖️"}
+        return {"q": f"What is {a} × {b}?", "a": str(a*b), "cat": "Multiplication ✖️", "mc": make_mc(str(a*b))}
     elif ptype == "division":
         b = random.randint(2, 12)
         r = random.randint(2, mx//b)
-        return {"q": f"What is {b*r} ÷ {b}?", "a": str(r), "cat": "Division ➗"}
+        return {"q": f"What is {b*r} ÷ {b}?", "a": str(r), "cat": "Division ➗", "mc": make_mc(str(r))}
     elif ptype == "algebra":
         if difficulty != "hard":
             x = random.randint(1, mx)
             b = random.randint(1, mx)
             if random.choice([True, False]):
-                return {"q": f"If x + {b} = {x+b}, what is x?", "a": str(x), "cat": "Algebra 🔤"}
+                return {"q": f"If x + {b} = {x+b}, what is x?", "a": str(x), "cat": "Algebra 🔤", "mc": make_mc(str(x))}
             else:
-                return {"q": f"If x - {b} = {x}, what is x?", "a": str(x+b), "cat": "Algebra 🔤"}
+                return {"q": f"If x - {b} = {x}, what is x?", "a": str(x+b), "cat": "Algebra 🔤", "mc": make_mc(str(x+b))}
         else:
             x = random.randint(2, 20)
             c = random.randint(2, 5)
             k = random.randint(1, 10)
-            return {"q": f"If {c}x + {k} = {c*x+k}, what is x?", "a": str(x), "cat": "Algebra 🔤"}
+            return {"q": f"If {c}x + {k} = {c*x+k}, what is x?", "a": str(x), "cat": "Algebra 🔤", "mc": make_mc(str(x))}
     elif ptype == "fractions":
         ds = [2, 4, 3, 6, 8]
         d1 = random.choice(ds)
@@ -230,9 +259,9 @@ def gen_math(difficulty, player_level):
         n1 = random.randint(1, d1-1)
         n2 = random.randint(1, d2-1)
         rn = n1 * (lcm//d1) + n2 * (lcm//d2)
-        return {"q": f"What is {n1}/{d1} + {n2}/{d2}? (answer as fraction)", "a": f"{rn}/{lcm}", "cat": "Fractions 🍕"}
+        return {"q": f"What is {n1}/{d1} + {n2}/{d2}? (answer as fraction)", "a": f"{rn}/{lcm}", "cat": "Fractions 🍕", "mc": make_mc(f"{rn}/{lcm}")}
     a, b = random.randint(1, mx), random.randint(1, mx)
-    return {"q": f"What is {a} + {b}?", "a": str(a+b), "cat": "Addition ➕"}
+    return {"q": f"What is {a} + {b}?", "a": str(a+b), "cat": "Addition ➕", "mc": make_mc(str(a+b))}
 
 def spawn_monster(player_level, boss=False):
     if boss:
@@ -357,7 +386,7 @@ def action_explore(g):
             g["mode"] = "boss"
             g["monster"] = spawn_boss(stage, g["level"])
             g["battle_round"] = 0
-            g["current_problem"] = gen_math(g["difficulty"], g["level"] + 2)
+            g["current_problem"] = gen_math(g["difficulty"], g["level"] + 2, g["rooms_cleared"])
             g["choices"] = roll_spells(g["current_problem"]["cat"])
             g["boss_phase"] = 1
             return g
@@ -375,7 +404,7 @@ def action_explore(g):
         g["mode"] = "boss"
         g["monster"] = spawn_boss(4, g["level"])
         g["battle_round"] = 0
-        g["current_problem"] = gen_math(g["difficulty"], g["level"] + 2)
+        g["current_problem"] = gen_math(g["difficulty"], g["level"] + 2, g["rooms_cleared"])
         g["choices"] = roll_spells(g["current_problem"]["cat"])
         g["boss_phase"] = 1
         return g
@@ -386,7 +415,7 @@ def action_explore(g):
         g["mode"] = "battle"
         g["monster"] = spawn_monster(g["level"])
         g["battle_round"] = 0
-        g["current_problem"] = gen_math(g["difficulty"], g["level"])
+        g["current_problem"] = gen_math(g["difficulty"], g["level"], g["rooms_cleared"])
         g["choices"] = roll_spells(g["current_problem"]["cat"])
         g["message"] = f"{g['monster']['emoji']} A wild {g['monster']['name']} appears!"
     elif roll < 0.70:
@@ -413,10 +442,18 @@ def action_explore(g):
         g["mode"] = "shop"
     return g
 
-def action_answer(g, answer, choice=None, response_time=None):
+def action_answer(g, answer, choice=None, response_time=None, mc_index=None):
     answer = answer.strip()
     if g["mode"] == "battle" or g["mode"] == "boss":
         prob = g["current_problem"]
+        # MULTIPLE-CHOICE MODE: validate against the mc options list
+        if mc_index not in (None, "") and isinstance(prob, dict) and prob.get("mc"):
+            try:
+                mi = int(mc_index)
+                if 0 <= mi < len(prob["mc"]):
+                    answer = str(prob["mc"][mi])
+            except (ValueError, TypeError):
+                answer = "__invalid__"
         if answer.lower() == prob["a"].lower():
             sm = g.get("choices") and g["choices"][int(choice)]["mult"] if (g.get("choices") and choice not in (None,"")) else 1.0
             sm = sm if sm else 1.0
@@ -550,7 +587,7 @@ def action_answer(g, answer, choice=None, response_time=None):
                 g["message_type"] = "defeat"
                 return g
             g["battle_round"] += 1
-        g["current_problem"] = gen_math(g["difficulty"], g["level"] + (2 if g["mode"] == "boss" else 0))
+        g["current_problem"] = gen_math(g["difficulty"], g["level"] + (2 if g["mode"] == "boss" else 0), g["rooms_cleared"])
         if g["mode"] == "boss":
             ratio = g["monster"]["hp"] / g["monster"]["max_hp"]
             g["boss_phase"] = 3 if ratio <= 0.25 else 2 if ratio <= 0.5 else 1
@@ -598,7 +635,7 @@ def action_fork(g, side):
         return g
     dest = g.get("fork_"+str(side), "treasure")
     if dest == "battle":
-        g["mode"]="battle"; g["monster"]=spawn_monster(g["level"]); g["battle_round"]=0; g["current_problem"]=gen_math(g["difficulty"],g["level"]); g["choices"]=roll_spells(g["current_problem"]["cat"])
+        g["mode"]="battle"; g["monster"]=spawn_monster(g["level"]); g["battle_round"]=0; g["current_problem"]=gen_math(g["difficulty"],g["level"],g["rooms_cleared"]); g["choices"]=roll_spells(g["current_problem"]["cat"])
     elif dest == "puzzle":
         g["mode"]="puzzle"; lvl=min(g["level"],len(CODING_PUZZLES)); g["current_puzzle"]=CODING_PUZZLES[lvl-1].copy(); g["puzzle_attempts"]=0
     elif dest == "rest":
@@ -1354,7 +1391,7 @@ class GameHandler(BaseHTTPRequestHandler):
                 g = action_explore(g)
                 resp['state'] = g
             elif action == 'answer' and g:
-                g = action_answer(g, req.get('answer', ''), req.get('choice'), req.get('response_time'))
+                g = action_answer(g, req.get('answer', ''), req.get('choice'), req.get('response_time'), req.get('mc_index'))
                 resp['state'] = g
             elif action == 'potion' and g:
                 g = action_potion(g)
