@@ -5,8 +5,9 @@
 <style>
 :root{--bg:#05030f;--panel:rgba(12,10,32,0.92);--panel-border:rgba(124,77,255,0.28);--ink:#eaf0ff;--ink-dim:#9aa6c8;--hp:#2ecc71;--hp-mid:#f39c12;--hp-low:#e74c3c;--xp:#7c4dff;--accent:#4dd0e1;--accent2:#b388ff;--gold:#ffd54f;--ease:cubic-bezier(.22,1,.36,1);--r:14px;--font:'Trebuchet MS','Segoe UI',system-ui,-apple-system,sans-serif}
 *{margin:0;padding:0;box-sizing:border-box;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
 body{background:var(--bg);overflow:hidden;font-family:var(--font);color:var(--ink)}
-#game{position:relative;width:100vw;max-width:480px;margin:0 auto;height:100vh;max-height:800px;overflow:hidden}
+#game{position:relative;width:100vw;max-width:480px;margin:0 auto;height:100vh;min-height:100%;max-height:800px;overflow:hidden}
 canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges}
 #ui{position:absolute;inset:0;pointer-events:none;z-index:10}
 .clickable{pointer-events:auto}
@@ -364,8 +365,20 @@ function sfxClick(){
   o.connect(g);g.connect(audioCtx.destination);o.start(t);o.stop(t+0.05);
 }
 
-function resize(){const r=document.getElementById('game').getBoundingClientRect();W=r.width;H=r.height;cv.width=W;cv.height=H}
-window.addEventListener('resize',resize);resize();
+function resize(){
+  const g=document.getElementById('game');
+  const r=g?g.getBoundingClientRect():null;
+  let w=r&&r.width?r.width:0, h=r&&r.height?r.height:0;
+  if(!w||!h){w=window.innerWidth||0;h=window.innerHeight||0;}
+  if(!w||!h){w=480;h=800;}
+  W=Math.max(1,Math.round(w));H=Math.max(1,Math.round(h));
+  cv.width=W;cv.height=H;
+}
+window.addEventListener('resize',resize);
+window.addEventListener('orientationchange',resize);
+if(document.readyState!=='loading')resize();else document.addEventListener('DOMContentLoaded',resize);
+window.addEventListener('load',resize);
+setTimeout(resize,0);requestAnimationFrame(resize);
 // AUDIO & JUICE: play a synthesized click on any UI button; init audio on first gesture (autoplay policy)
 document.addEventListener('pointerdown',function(e){
   try{initAudio();}catch(_){}
@@ -1197,6 +1210,7 @@ function drawShockwaves(){
 // === MAIN GAME LOOP ===
 
 function loop(){
+  if(W<2||H<2)resize();  // defensive: if canvas ended up 0-size (layout not ready), recover
   if(hitStop>0){hitStop--;requestAnimationFrame(loop);return;} // hit-stop freeze frame
   animTime+=0.016;
   let ox=0,oy=0;
