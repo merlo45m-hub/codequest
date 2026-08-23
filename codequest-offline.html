@@ -390,7 +390,7 @@ for(let i=0;i<6;i++)torchFlicker.push(0.7+Math.random()*0.3);
 
 // === ANIMATED SPRITE DRAWING ===
 
-function drawPlayer(x,y,scl,hit,attacking,heroClass){
+function drawPlayerReal(x,y,scl,hit,attacking,heroClass){
   ctx.save();ctx.translate(x,y);ctx.scale(scl,scl);
   const br=Math.sin(animTime*2.5);
   ctx.scale(1-br*0.04, 1+br*0.05);
@@ -470,7 +470,7 @@ function drawPlayer(x,y,scl,hit,attacking,heroClass){
   ctx.restore();
 }
 
-function drawMonster(x,y,scl,type,hit,attacking,phase,draw){
+function drawMonsterReal(x,y,scl,type,hit,attacking,phase,draw){
   ctx.save();ctx.translate(x,y);ctx.scale(scl,scl);
   const bob=Math.sin(animTime*1.5+1)*3;
   ctx.translate(0,bob);
@@ -647,7 +647,7 @@ function drawBiomeSilhouette(depth){
   }
   ctx.restore();
 }
-function drawCavernBg(){
+function drawCavernBgReal(){
   let depth=state?Math.min(7,Math.floor(state.rooms_cleared/3)):0;
   curBiome=depth>=3?'ruins':'cavern';
   setMusicBiome(curBiome);
@@ -1214,6 +1214,7 @@ function loop(){
   if(hitStop>0){hitStop--;requestAnimationFrame(loop);return;} // hit-stop freeze frame
   animTime+=0.016;
   let ox=0,oy=0;
+  try{
   if(shakeTime>0){shakeTime--;const s=shakeMag*(trauma*trauma);ox=(Math.random()-0.5)*s+shakeDirX*s*0.5;oy=(Math.random()-0.5)*s+shakeDirY*s*0.5;shakeMag*=0.88;trauma*=0.9}
   if(roomTrans>0){roomTrans-=0.04;if(roomTrans<0)roomTrans=0}
   if(chestAnim>0&&chestOpen){chestAnim=Math.min(1,chestAnim+0.03)}
@@ -1281,6 +1282,7 @@ function loop(){
 
   drawStreakFire();drawGoldRain();drawAttackTrail();drawSpears();drawLevelUpText();drawParticles();drawDmgNums();drawSpells();drawShockwaves();drawSwoosh();drawComboTexts();drawFlash();drawBossIntro();drawVictory();drawRoomTransition();drawVignette();drawBloom();drawCountdownBar();
   ctx.restore();
+  }catch(e){drawFrameError(e);}
   requestAnimationFrame(loop);
 }
 
@@ -1660,6 +1662,45 @@ loadSettings();
 render();
 autoResumeIfSaved();
 
+// === PLACEHOLDER / FALLBACK SYSTEM ===
+function placeholderBox(x,y,w,h,color,label){
+  try{
+    ctx.save();
+    ctx.fillStyle=color; ctx.fillRect(x-w/2,y-h/2,w,h);
+    ctx.lineWidth=3; ctx.strokeStyle='#ffffff'; ctx.strokeRect(x-w/2,y-h/2,w,h);
+    ctx.fillStyle='#000'; ctx.font='bold 11px system-ui'; ctx.textAlign='center';
+    ctx.fillText(label||'', x, y+4);
+    ctx.restore();
+  }catch(_){}
+}
+function drawFrameError(e){
+  try{
+    ctx.save();
+    ctx.fillStyle='rgba(20,0,30,0.85)'; ctx.fillRect(0,0,W,H);
+    ctx.lineWidth=6; ctx.strokeStyle='#ff00ff'; ctx.strokeRect(8,8,W-16,H-16);
+    ctx.fillStyle='#ff3df5'; ctx.font='bold 22px system-ui'; ctx.textAlign='center';
+    ctx.fillText('RENDER ERROR', W/2, H*0.45);
+    ctx.fillStyle='#ffd1ff'; ctx.font='13px system-ui';
+    const msg=(e&&e.message)?e.message:String(e);
+    ctx.fillText(msg.slice(0,60), W/2, H*0.45+24);
+    ctx.fillStyle='#fff'; ctx.font='11px system-ui';
+    ctx.fillText('Game state preserved — see console.', W/2, H*0.45+44);
+    ctx.restore();
+    console.error('[drawFrameError]', e);
+  }catch(_){}
+}
+function drawPlayer(x,y,scl,hit,attacking,heroClass){
+  try{drawPlayerReal(x,y,scl,hit,attacking,heroClass);}
+  catch(e){placeholderBox(x,y,40*scl,60*scl,'#00e5ff','HERO');console.error('drawPlayer',e);}
+}
+function drawMonster(x,y,scl,type,hit,attacking,phase,draw){
+  try{drawMonsterReal(x,y,scl,type,hit,attacking,phase,draw);}
+  catch(e){placeholderBox(x,y,50*scl,50*scl,'#ff1744','FOE');console.error('drawMonster',e);}
+}
+function drawCavernBg(){
+  try{drawCavernBgReal();}
+  catch(e){placeholderBox(W/2,H/2,W,H*0.4,'#1a0033','BG');console.error('drawCavernBg',e);}
+}
 </script>
 </body>
 </html>
