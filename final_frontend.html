@@ -1478,7 +1478,7 @@ function chargeChipHTML(state){
   hud+=`<span class="chip fold" style="background:rgba(255,215,0,0.25);color:#ffd54f">🏆 R${bestRun.rooms}</span>`;
   hud+=`<span class="chip hud-toggle" style="background:rgba(255,255,255,0.18)" onclick="showMenu=true;render()">☰</span>`;
   hud+=`</div>`;
-  hud+=`<div class="barwrap"><div class="barlabel" style="color:#69f0ae">YOU</div><div class="bar"><div class="barfill ${hpCls}" style="width:${Math.max(0,hpPct)}%"></div></div><span class="barnum">HP ${state.hp}/${state.max_hp}</span></div>`;
+  hud+=`<div class="barwrap"><div class="barlabel" style="color:#69f0ae">YOU</div><div class="bar"><div class="barfill ${hpCls}" style="width:${Math.max(0,hpPct)}%"></div></div><span class="barnum">HP ${state.hp}/${state.max_hp}${state.shield?` (+${state.shield} Shield)`:''}</span></div>`;
   hud+=`<div class="barwrap"><div class="barlabel" style="color:#b388ff">XP</div><div class="bar xp"><div class="barfillx" style="width:${xpPct}%"></div></div><span class="barnum">${state.xp}/${state.xp_to_next}</span></div>`;
   let panel='';
   if(state.message)panel+=`<div class="msg msg-${state.message_type}">${state.message}</div>`;
