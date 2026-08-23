@@ -26,7 +26,7 @@ body{background:var(--bg);overflow:hidden;font-family:var(--font);color:var(--in
 canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges}
 #ui{position:absolute;inset:0;pointer-events:none;z-index:10}
 .clickable{pointer-events:auto}
-.hud{position:absolute;top:0;left:0;right:0;padding:4px 6px;display:flex;gap:3px;flex-wrap:wrap;font-size:10px;font-weight:bold}
+.hud{position:absolute;top:0;left:0;right:0;z-index:12;padding:4px 6px;display:flex;gap:3px;flex-wrap:wrap;font-size:10px;font-weight:bold}
 .hud .chip{background:rgba(0,0,0,0.65);padding:2px 7px;border-radius:5px;backdrop-filter:blur(4px)}
 .hud .chip.hp{flex:1;min-width:70px}
 .hp-mini{width:55px;height:4px;background:#333;border-radius:2px;overflow:hidden;display:inline-block;vertical-align:middle;margin-left:3px}
@@ -36,16 +36,16 @@ canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rend
 .hud2{position:absolute;top:24px;left:0;right:0;padding:0 6px;display:flex;gap:3px;flex-wrap:wrap;font-size:10px;font-weight:bold}
 .hud2 .chip{background:rgba(0,0,0,0.65);padding:2px 7px;border-radius:5px}
 .hud .chip{background:rgba(0,0,0,0.6);padding:3px 8px;border-radius:14px;font-size:0.72em;font-weight:bold;border:1px solid rgba(255,255,255,0.08)}
-.barwrap{position:absolute;left:6px;right:6px;top:48px;display:flex;align-items:center;gap:6px;font-size:9px;font-weight:bold}
-.barlabel{width:20px;color:#69f0ae;text-shadow:0 1px 2px #000}
+.barwrap{position:absolute;left:8px;right:8px;top:48px;z-index:11;background:rgba(8,8,24,0.6);border-radius:6px;padding:3px 6px;display:flex;align-items:center;gap:6px;font-size:9px;font-weight:bold}
+.barlabel{width:24px;flex-shrink:0;padding-left:2px;color:#69f0ae;text-shadow:0 1px 2px #000}
 .bar{position:relative;flex:1;height:13px;background:rgba(0,0,0,0.6);border-radius:7px;overflow:hidden;border:1px solid rgba(255,255,255,0.1)}
 .barfill{height:100%;background:linear-gradient(90deg,#2ecc71,#38ef7d);transition:width .5s var(--ease);border-radius:7px}
 .barfill.mid{background:linear-gradient(90deg,#f39c12,#f1c40f)}
 .barfill.low{background:linear-gradient(90deg,#e74c3c,#ff6b6b);animation:lowpulse 1s ease-in-out infinite}
 .bar.xp{height:10px}
 .barfillx{height:100%;background:linear-gradient(90deg,#7c4dff,#b388ff);transition:width .5s var(--ease);border-radius:7px}
-.barnum{width:auto;color:#ccc;text-shadow:0 1px 2px #000;min-width:54px;text-align:right}
-.panel{position:absolute;left:6px;right:6px;bottom:6px;max-height:calc(100vh - 72px);overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;background:rgba(8,8,24,0.95);border-radius:12px;padding:8px 10px;border:1px solid rgba(100,100,255,0.15);backdrop-filter:blur(8px)}
+.barnum{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding-left:4px;}width:auto;color:#ccc;text-shadow:0 1px 2px #000;min-width:54px;text-align:right}
+.panel{position:absolute;left:6px;right:6px;top:74px;bottom:6px;max-height:none;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;background:rgba(8,8,24,0.95);border-radius:12px;padding:8px 10px;border:1px solid rgba(100,100,255,0.15);backdrop-filter:blur(8px)}
 .panel>*{flex:0 0 auto}
 .panel.title-screen{top:50%;transform:translateY(-50%);bottom:auto;text-align:center;background:linear-gradient(160deg,rgba(20,12,45,0.92),rgba(8,8,24,0.95));border:1px solid rgba(124,77,255,0.35);box-shadow:0 0 40px rgba(124,77,255,0.25)}
 .game-logo{font-size:1.7em;font-weight:bold;margin:0 0 2px;background:linear-gradient(90deg,#4dd0e1,#b388ff,#ff8a80);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:1px;animation:logopulse 2.4s ease-in-out infinite}
@@ -120,6 +120,13 @@ canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rend
 .numpad button{font-size:1.1em;font-weight:bold;padding:8px 0;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.08);color:#fff;cursor:pointer;}
 .numpad button:active{background:rgba(255,255,255,0.2);}
 #loaderr{display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:#b71c1c;color:#fff;font-size:0.8em;padding:8px 10px;text-align:center;}
+/* ===== HUD overflow fixes (prevent clipped XP/HP labels) ===== */
+.hud{box-sizing:border-box;overflow:hidden;max-width:100vw;}
+.hud .chip{flex-shrink:1;min-width:0;white-space:nowrap;}
+.barwrap{box-sizing:border-box;padding:0 2px;max-width:100vw;}
+.barlabel{flex-shrink:0;}
+.barnum{box-sizing:border-box;min-width:0;flex-shrink:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:4px;}
+.bar{box-sizing:border-box;}
 </style>
 </head>
 <body>
@@ -1283,6 +1290,7 @@ function drawBattleFlow(cy){
 }
 function drawBattleScene(cy){
   if(!state||!state.monster)return;
+  const m=state.monster;
   // cinematic arena floor + vignette
   const gnd=ctx.createLinearGradient(0,cy+30,0,H);gnd.addColorStop(0,'rgba(40,20,60,0)');gnd.addColorStop(1,'rgba(20,10,35,0.85)');
   ctx.fillStyle=gnd;ctx.beginPath();ctx.ellipse(W/2,H-10,W*0.55,60,0,0,Math.PI*2);ctx.fill();
@@ -1301,7 +1309,7 @@ function drawBattleScene(cy){
   mg.addColorStop(0,rgba(mlc,0.32));mg.addColorStop(1,rgba(mlc,0));
   ctx.fillStyle=mg;ctx.beginPath();ctx.ellipse(mx,my+18,100,50,0,0,Math.PI*2);ctx.fill();
   ctx.restore();
-  const m=state.monster;const mx=W*0.72,my=cy;
+  const mx=W*0.72,my=cy;
   const pHit=lastState&&state.hp<lastState.hp;
   const mHit=lastState&&lastState.monster&&state.monster.hp<lastState.monster.hp;
   const pAttacking=attackAnim>0&&attackAnimWho==='player';
@@ -1502,7 +1510,7 @@ function chargeChipHTML(state){
   hud+=`<span class="chip fold" style="background:rgba(255,215,0,0.25);color:#ffd54f">🏆 R${bestRun.rooms}</span>`;
   hud+=`<span class="chip hud-toggle" style="background:rgba(255,255,255,0.18)" onclick="showMenu=true;render()">☰</span>`;
   hud+=`</div>`;
-  hud+=`<div class="barwrap"><div class="barlabel" style="color:#69f0ae">YOU</div><div class="bar"><div class="barfill ${hpCls}" style="width:${Math.max(0,hpPct)}%"></div></div><span class="barnum">HP ${state.hp}/${state.max_hp}${state.shield?` (+${state.shield} Shield)`:''}</span></div>`;
+  hud+=`<div class="barwrap"><div class="barlabel" style="color:#69f0ae">YOU</div><div class="bar"><div class="barfill ${hpCls}" style="width:${Math.max(0,hpPct)}%"></div></div><span class="barnum">HP ${Math.min(state.hp,state.max_hp)}/${state.max_hp}${state.shield?` (+${state.shield} Shield)`:''}</span></div>`;
   hud+=`<div class="barwrap"><div class="barlabel" style="color:#b388ff">XP</div><div class="bar xp"><div class="barfillx" style="width:${xpPct}%"></div></div><span class="barnum">${state.xp}/${state.xp_to_next}</span></div>`;
   let panel='';
   if(state.message)panel+=`<div class="msg msg-${state.message_type}">${state.message}</div>`;
@@ -1706,7 +1714,8 @@ function doShop(c){api('shop',{choice:c})}
 function resumeGame(){if(!savedSID)return;SID=savedSID;api('resume').then(()=>{}).catch(()=>{});}
 function hasLocalSave(){try{return !!localStorage.getItem('cq_save');}catch(e){return false;}}
 function localSaveRoom(){try{return (JSON.parse(localStorage.getItem('cq_save')||'{}').rooms_cleared||0)+1;}catch(e){return 0;}}
-function continueGame(){try{const st=JSON.parse(localStorage.getItem('cq_save'));if(!st)return;state=st;SID=null;savedSID=null;gameMode='play';if(st.mode==='title'||!st.mode){state.mode='explore';}render();api('restore',{state:st}).then(d=>{}).catch(()=>{});}catch(e){console.error(e);}}
+function sanitizeState(s){try{if(!s||typeof s!=='object')return null;if(typeof s.max_hp!=='number'||s.max_hp<80||typeof s.hp!=='number')return null;if(s.hp>s.max_hp)s.hp=s.max_hp;if(s.hp<0)s.hp=0;return s;}catch(e){return null;}}
+function continueGame(){try{const raw=localStorage.getItem('cq_save');if(!raw)return;const st=sanitizeState(JSON.parse(raw));if(!st){try{localStorage.removeItem('cq_save');}catch(e){}return;}state=st;SID=null;savedSID=null;gameMode='play';if(st.mode==='title'||!st.mode){state.mode='explore';}render();api('restore',{state:st}).then(d=>{}).catch(()=>{});}catch(e){console.error(e);try{localStorage.removeItem('cq_save');}catch(_){}}}
 function mainMenu(){clearSave();SID=null;state=null;showMenu=false;gameMode='title';render();}
 function confirmRestart(){if(state&&state.name){const r=confirm('Restart from the top? Your current run will be lost.');if(!r)return;}clearSave();SID=null;state=null;showMenu=false;gameMode='title';render();}
 function confirmNewGame(){
