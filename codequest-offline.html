@@ -240,6 +240,7 @@ const ui=document.getElementById('ui');
 let W=480,H=800;
 let SID=null,state=null,lastState=null;
 let particles=[],dmgNums=[],shakeTime=0,shakeMag=0,flashColor=null,flashAlpha=0;
+let dust=[];
 const CLIENT_CONFIG={max_particles:400,max_projectiles:64,max_shockwaves:24};
 let pHitFlash=0;
 let badges={};let badgeMsg='';let badgeMsgLife=0;
@@ -1293,6 +1294,10 @@ function drawBattleScene(cy){
   }
   // Enemy attack telegraph
   if(mAttacking){ctx.save();ctx.globalAlpha=0.6+0.4*Math.sin(animTime*20);ctx.fillStyle='#ff1744';ctx.font='bold 22px system-ui';ctx.textAlign='center';ctx.fillText('INCOMING',mx,my-70);ctx.restore();}
+  if(attackAnim>0){const ax=attackAnimWho==='player'?px:mEnterX, ay=attackAnimWho==='player'?py:my;for(let i=0;i<2;i++)spawnParticles(ax+(Math.random()-0.5)*20, ay+10+(Math.random()-0.5)*20, attackAnimWho==='player'?'#4dd0e1':'#ff5252', 1);}
+  if(Math.random()<0.25)spawnParticles(px+(Math.random()-0.5)*30, py+20, '#b388ff', 1);
+  if(dust.length<42 && Math.random()<0.35)dust.push({x:Math.random()*W, y:H-10-Math.random()*40, vy:-(0.2+Math.random()*0.4), sz:1+Math.random()*2, a:0.12+Math.random()*0.22, ph:Math.random()*6});
+  for(let i=dust.length-1;i>=0;i--){const d=dust[i];d.y+=d.vy;d.x+=Math.sin((animTime+d.ph)*0.5)*0.3;d.a*=0.999;if(d.y<H*0.3||d.a<0.02){dust.splice(i,1);continue}ctx.globalAlpha=d.a;ctx.fillStyle='#cdb4ff';ctx.beginPath();ctx.arc(d.x,d.y,d.sz,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;}
   drawBattleFlow(cy);
 }
 
@@ -1325,7 +1330,7 @@ function onStateChange(prev,curr){
   // Monster damage
   if(prev.monster&&curr.monster&&curr.monster.hp<prev.monster.hp){
     const dmg=prev.monster.hp-curr.monster.hp;const heavy=dmg>=22||curr.streak>=3;
-    addShake(heavy?12:7, heavy?12:7);if(heavy)hitStop=Math.min(5,1+Math.floor(dmg/16));
+    addShake(heavy?12:7, heavy?12:7);hitStop=Math.max(hitStop,3);if(heavy)hitStop=Math.max(hitStop,Math.min(5,1+Math.floor(dmg/16)));
     spawnDmg(W*0.72,H*0.38,dmg,'monster',heavy);
     spawnParticles(W*0.72,H*0.42,'#ffd54f',30);sfxHit();mHurt=1;
     attackAnim=1;attackAnimWho='player';
@@ -1334,6 +1339,7 @@ function onStateChange(prev,curr){
     castSpell(_st?_st.color:(curr.streak>=3?'#ff416c':'#4dd0e1'), _st?_st.type:'arcane', _st?_st.mult:1);
     if(curr.streak>=3){spawnShockwave(W*0.72,H*0.42,'#ff416c');shakeTime=14;shakeMag=10;spawnCombo('STREAK x'+curr.streak+'!',curr.streak>=5?'#ff416c':'#ff9800');}
     if(curr.charged_this_hit){spawnShockwave(W*0.72,H*0.42,'#ffd54f');spawnShockwave(W*0.72,H*0.42,'#fff');flashColor='#ffd54f';flashAlpha=0.5;shakeTime=Math.max(shakeTime,12);shakeMag=Math.max(shakeMag,9);spawnCombo('\u26a1 CHARGED!',curr.streak>=5?'#ff416c':'#ffd54f');}
+    if(curr.crit_this_hit){flashColor='#fff176';flashAlpha=Math.max(flashAlpha,0.45);spawnShockwave(W*0.72,H*0.42,'#fff176');shakeTime=Math.max(shakeTime,10);shakeMag=Math.max(shakeMag,8);spawnCombo('CRIT!', '#fff176');}
     for(let i=0;i<8;i++)attackTrail.push({x:W*0.25+i*12,y:H*0.45,life:1,color:curr.streak>=3?'#ff416c':'#4dd0e1'});
     for(let i=0;i<12;i++)spearTrails.push({x:W*0.25+(i*18),y:H*0.42+Math.sin(i)*5,life:1,color:'#4dd0e1'});
   }
@@ -1354,6 +1360,7 @@ function onStateChange(prev,curr){
     for(let i=0;i<8;i++){streakFire.push({x:W*0.25+(Math.random()-0.5)*30,y:H*0.3+Math.random()*20,size:3+Math.random()*3,life:1,color:curr.streak>=5?'#ff416c':'#ff9800'})}
   }
   if(curr.message_type==='treasure'){flashColor='#ffd700';flashAlpha=0.3;spawnParticles(W*0.5,H*0.4,'#ffd54f',20);sfxTreasure();chestOpen=true;chestAnim=0;for(let i=0;i<25;i++){goldRain.push({x:W/2+(Math.random()-0.5)*80,y:H*0.35,vy:-1-Math.random()*5,size:2+Math.random()*4,color:'#ffd700',life:1})}}
+  if(curr.message_type==='defend'){flashColor='#4dd0e1';flashAlpha=0.5;spawnShockwave(W*0.25,H*0.42,'#4dd0e1');spawnShockwave(W*0.25,H*0.42,'#fff');shakeTime=Math.max(shakeTime,10);shakeMag=Math.max(shakeMag,8);spawnCombo('\u{1F6E1} PARRY!', '#4dd0e1');for(let i=0;i<16;i++)spawnParticles(W*0.25,H*0.42,'#4dd0e1',16);sfxClick();}
   // Victory
   if(curr.message_type==='victory'&&curr.mode!=='boss'){flashColor='#ffd700';flashAlpha=0.3;sfxCorrect()}
   if(curr.story_stage>=5&&prev.story_stage<5){victoryTime=1;victoryTrig=1;flashColor='#ffd700';flashAlpha=0.6;for(let i=0;i<60;i++)spawnParticles(W*0.72,H*0.45,'#ce93d8',60);for(let i=0;i<30;i++)spawnParticles(W*0.72,H*0.45,'#fff',30);spawnShockwave(W*0.72,H*0.45,'#e8a6f0');spawnShockwave(W*0.72,H*0.45,'#fff');sfxVictory();hitStop=10;shakeTime=20;shakeMag=14}
