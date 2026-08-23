@@ -67,21 +67,46 @@ DIFFICULTY = {
     "hard": {"max": 500, "neg": True, "frac": True, "xp_mult": 0.8, "label": "Legend (13-15)"},
 }
 
+# MODULAR SPELL SCHEMA: single source of truth.
+#   tier | steady x1.0 | big_hit x1.5-1.8 | risky x2.0+ (carries `risk` miss chance)
+#   `cat` is a soft flavor preference only (no hard coupling to math category).
 SPELLS = [
-  {"name":"Spark Bolt","color":"#4dd0e1","mult":1.0,"desc":"steady","cat":"Arithmetic","type":"arcane"},
-  {"name":"Flame Burst","color":"#ff7043","mult":1.6,"desc":"big hit","cat":"Multiplication","type":"fire"},
-  {"name":"Frost Lance","color":"#4dd0e1","mult":1.25,"desc":"strong","cat":"Division","type":"ice"},
-  {"name":"Stone Smash","color":"#a1887f","mult":1.4,"desc":"heavy","cat":"Addition","type":"arcane"},
-  {"name":"Venom Spray","color":"#9ccc65","mult":1.15,"desc":"toxic","cat":"Subtraction","type":"arcane"},
-  {"name":"Shadow Strike","color":"#ab47bc","mult":1.8,"desc":"risky!","cat":"Power","type":"lightning"},
+  {"name":"Spark Bolt","color":"#4dd0e1","mult":1.0,"desc":"steady","tier":"steady","cat":"Arithmetic","type":"arcane","risk":0.0},
+  {"name":"Flame Burst","color":"#ff7043","mult":1.6,"desc":"big hit","tier":"big_hit","cat":"Multiplication","type":"fire","risk":0.0},
+  {"name":"Frost Lance","color":"#4dd0e1","mult":1.25,"desc":"strong","tier":"big_hit","cat":"Division","type":"ice","risk":0.0},
+  {"name":"Stone Smash","color":"#a1887f","mult":1.4,"desc":"heavy","tier":"big_hit","cat":"Addition","type":"arcane","risk":0.0},
+  {"name":"Venom Spray","color":"#9ccc65","mult":1.15,"desc":"toxic","tier":"big_hit","cat":"Subtraction","type":"arcane","risk":0.0},
+  {"name":"Shadow Strike","color":"#ab47bc","mult":2.2,"desc":"risky!","tier":"risky","cat":"Power","type":"lightning","risk":0.15},
 ]
-def roll_spells(math_cat):
+def roll_spells(prefer_cat=None, risky_rate=0.35):
+    """Modular spell selection: decoupled from math category.
+    - Softly prefers a spell whose `cat` matches prefer_cat (flavor only).
+    - Returns 3 DISTINCT spells. Primary is always non-risky (fairness guaranteed).
+    - Risky spells appear ~risky_rate of the time (minority option), never alone."""
     import random as _r
-    cat_map={"Arithmetic":"Spark Bolt","Multiplication":"Flame Burst","Division":"Frost Lance","Addition":"Stone Smash","Subtraction":"Venom Spray","Power":"Shadow Strike"}
-    primary=cat_map.get(math_cat,"Spark Bolt")
-    pool=[sp for sp in SPELLS if sp["name"]!=primary]
-    _r.shuffle(pool)
-    return [next(sp for sp in SPELLS if sp["name"]==primary)]+pool[:2]
+    if not SPELLS:
+        return []
+    safe=[s for s in SPELLS if s.get("tier")!="risky"]
+    risky=[s for s in SPELLS if s.get("tier")=="risky"]
+    # primary: prefer flavor match, else random safe spell
+    pref=[s for s in safe if s.get("cat")==prefer_cat]
+    primary=_r.choice(pref) if pref else _r.choice(safe)
+    rest=[s for s in SPELLS if s["name"]!=primary["name"]]
+    _r.shuffle(rest)
+    out=[primary]
+    safe_rest=[s for s in rest if s.get("tier")!="risky"]
+    _r.shuffle(safe_rest)
+    # optionally include a risky spell (minority, never replaces the safe primary)
+    if risky and _r.random() < risky_rate:
+        r=_r.choice(risky)
+        if r["name"] not in [s["name"] for s in out]:
+            out.append(r)
+    # fill remaining slots from SAFE spells only (risky enters only via the gate above)
+    for s in safe_rest:
+        if len(out)>=3: break
+        if s["name"] not in [x["name"] for x in out]:
+            out.append(s)
+    return out[:3]
 CLASSES={
  "mage":    {"name":"Mage","glyph":"X","color":"#8b5cf6","emoji":"*","desc":"Glass cannon. +3 atk, +25% spell dmg. Fragile (80hp). Special OVERLOAD: next spell x2.","hp":80,"atk":13,"spell_mult":1.25,"special":"overload"},
  "knight":  {"name":"Knight","glyph":"S","color":"#f59e0b","emoji":"#","desc":"Tank. 140hp +1 potion. Special BULWARK: heal 30% + no dmg next hit.","hp":140,"atk":9,"spell_mult":1.0,"special":"bulwark"},
@@ -468,7 +493,15 @@ def action_answer(g, answer, choice=None, response_time=None, mc_index=None):
             sm = g.get("choices") and g["choices"][int(choice)]["mult"] if (g.get("choices") and choice not in (None,"")) else 1.0
             sm = sm if sm else 1.0
             sp = resolve_special(g.get("special"), g.get("special_armed"), g.get("special_ready"), g["max_hp"])
-            dmg = calc_spell_damage(g["attack"], sm, sp["dmg_mult"], g["streak"])
+            # RISK/MISS: risky spells can fizzle (real risk/reward per balance tiers)
+            _spell = (g.get("choices") or [None])[int(choice)] if (g.get("choices") and choice not in (None,"")) else None
+            _risk = _spell.get("risk", 0.0) if isinstance(_spell, dict) else 0.0
+            if _risk and _risk > 0 and random.random() < _risk:
+                dmg = 0
+                g["streak"] = 0
+                g["_risky_miss"] = True   # message applied after streak/crit logic below
+            else:
+                dmg = calc_spell_damage(g["attack"], sm, sp["dmg_mult"], g["streak"])
             # RESPONSE COUNTDOWN CRIT: answer within crit.window seconds -> +50%
             g["last_response_time"] = response_time
             g["crit_this_hit"] = False
@@ -511,6 +544,10 @@ def action_answer(g, answer, choice=None, response_time=None, mc_index=None):
             # RESPONSE COUNTDOWN CRIT: stamp the crit into the final message
             if g.get("crit_this_hit"):
                 g["message"] = "\u26a1 CRIT! x%.1f \u2014 " % CONFIG["crit"]["mult"] + g["message"]
+            if g.get("_risky_miss"):
+                g["message"] = "\u26a1 RISKY MISS! %s fizzles in the dark!" % (_spell.get("name", "Spell") if isinstance(_spell, dict) else "Spell")
+                g["message_type"] = "miss"
+                g.pop("_risky_miss", None)
             if g["mode"] == "boss" and g.get("boss_telegraph"):
                 g["boss_telegraph"] = 0
                 g["boss_pending_dmg"] = 0
@@ -529,7 +566,8 @@ def action_answer(g, answer, choice=None, response_time=None, mc_index=None):
                     g["message"] = f"You defeated the {g['monster']['name']}! The path opens deeper into the caverns."
                     g["message_type"] = "win"
                     return g
-            g["message_type"] = "hit"
+            if g.get("message_type") != "miss":
+                g["message_type"] = "hit"
             if g["monster"]["hp"] <= 0:
                 xp = int(g["monster"]["xp"] * DIFFICULTY[g["difficulty"]]["xp_mult"])
                 gems = random.randint(1, 3)
