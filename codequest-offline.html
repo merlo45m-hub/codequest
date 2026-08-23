@@ -43,8 +43,14 @@ canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rend
 .panel p{font-size:0.8em;color:#888;margin-bottom:6px;line-height:1.4}
 .panel input,.panel select{width:100%;padding:10px;border-radius:8px;border:2px solid #333;background:rgba(0,0,0,0.5);color:#fff;font-size:0.95em;margin:3px 0}
 .panel input:focus{border-color:#0575E6;outline:none}
-.btn{display:block;width:100%;padding:11px;border:none;border-radius:10px;font-size:0.95em;font-weight:bold;cursor:pointer;margin:3px 0;transition:transform .1s}
+.btn{display:block;width:100%;padding:12px;min-height:48px;border:none;border-radius:10px;font-size:1em;font-weight:bold;cursor:pointer;margin:3px 0;transition:transform .1s}
 .btn:active{transform:scale(.96)}
+.thumb-cluster{position:sticky;bottom:0;background:linear-gradient(180deg,rgba(8,8,24,0) 0%,rgba(8,8,24,0.98) 30%);padding:6px 0 2px;margin-top:4px}
+.panel input{font-size:1.15em;padding:14px;min-height:52px}
+.math-q{font-size:1.6em;font-weight:bold;line-height:1.2}
+.hud .chip.fold{display:none}
+.hud.show-extra .chip.fold{display:inline-block}
+.hud-toggle{cursor:pointer}
 .btn-primary{background:linear-gradient(135deg,#00f260,#0575E6);color:#fff}
 .btn-danger{background:linear-gradient(135deg,#ff416c,#ff4b2b);color:#fff}
 .btn-success{background:linear-gradient(135deg,#11998e,#38ef7d);color:#fff}
@@ -1436,16 +1442,18 @@ function chargeChipHTML(state){
   }
   return "<span class=\"chip\" style=\"background:rgba(255,213,79,0.18);color:#ffd54f\">\u26a1"+pips+"</span>";
 }
-  let hud=`<div class="hud clickable">`;
+  const hudOpen = (window.__hudExtra)?' show-extra':'';
+  let hud=`<div class="hud clickable${hudOpen}">`;
   hud+=`<span class="chip lv">⭐${state.level}</span>`;
   hud+=`<span class="chip" style="background:rgba(124,77,255,0.5)">📍 ${zoneName}</span>`;
   hud+=`<span class="chip">🗡️${state.attack}</span>`;
   hud+=`<span class="chip">🧪${state.potions}</span>`;
   hud+=`<span class="chip">💎${state.gems||0}</span>`;
-  if(state.streak>0)hud+=`<span class="chip" style="background:rgba(255,65,108,0.5)">🔥${state.streak}</span>`;
-  hud+=chargeChipHTML(state);
-  hud+=`<span class="chip clickable" style="background:rgba(124,77,255,0.4)" onclick="toggleMusic()">${musicOn?'🔊':'🔇'}</span>`;
-  hud+=`<span class="chip" style="background:rgba(255,215,0,0.25);color:#ffd54f">🏆 R${bestRun.rooms}</span>`;
+  hud+=`<span class="chip hud-toggle" style="background:rgba(255,255,255,0.12)" onclick="window.__hudExtra=!window.__hudExtra;render()">${window.__hudExtra?'▾':'▸'}</span>`;
+  if(state.streak>0)hud+=`<span class="chip fold" style="background:rgba(255,65,108,0.5)">🔥${state.streak}</span>`;
+  hud+=chargeChipHTML(state).replace('class="chip"','class="chip fold"');
+  hud+=`<span class="chip fold clickable" style="background:rgba(124,77,255,0.4)" onclick="toggleMusic()">${musicOn?'🔊':'🔇'}</span>`;
+  hud+=`<span class="chip fold" style="background:rgba(255,215,0,0.25);color:#ffd54f">🏆 R${bestRun.rooms}</span>`;
   hud+=`</div>`;
   hud+=`<div class="barwrap"><div class="barlabel">HP</div><div class="bar"><div class="barfill ${hpCls}" style="width:${Math.max(0,hpPct)}%"></div></div><span class="barnum">${state.hp}/${state.max_hp}</span></div>`;
   hud+=`<div class="barwrap"><div class="barlabel" style="color:#b388ff">XP</div><div class="bar xp"><div class="barfillx" style="width:${xpPct}%"></div></div><span class="barnum">${state.xp}/${state.xp_to_next}</span></div>`;
@@ -1471,8 +1479,10 @@ function chargeChipHTML(state){
       panel+=`<button class=\"btn btn-special clickable\" onclick=\"api('defend')\" style=\"margin:4px 0;width:100%;font-weight:bold;color:#9be7ff;border-color:#4dd0e1;animation:pulseGlow 0.7s infinite\">🛡 BULWARK — PARRY THE ${state.current_move||'strike'}!</button>`;
     }
     panel+=`<div class="math-box"><div class="math-cat">${p.cat}</div><div class="math-q">${p.q}</div></div>`;
+    panel+=`<div class="thumb-cluster">`;
     panel+=`<input type="text" id="answer" placeholder="Your answer..." onkeypress="if(event.key==='Enter')doAnswer()">`;
     panel+=`<button class="btn btn-danger clickable" onclick="doAnswer()">Attack!</button>`;
+    panel+=`</div>`;
   }else if(state.mode==='puzzle'){
     const p=state.current_puzzle;
     panel+=`<div style="font-size:0.85em;color:#80cbc4;font-weight:bold;text-align:center">Coding Puzzle (Level ${p.level})</div>`;
