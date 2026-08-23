@@ -58,6 +58,7 @@ canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rend
 .btn-danger{background:linear-gradient(135deg,#ff416c,#ff4b2b);color:#fff}
 .btn-success{background:linear-gradient(135deg,#11998e,#38ef7d);color:#fff}
 .btn-secondary{background:rgba(255,255,255,0.1);color:#ccc}
+.btn-warning{background:linear-gradient(135deg,#f7971e,#ffd200);color:#1a1a1a;font-weight:bold}
 .math-box{text-align:center;margin:4px 0}
 .spell-row{display:flex;gap:6px;margin:4px 0}
 .spell-btn{flex:1;border:2px solid #555;border-radius:10px;padding:5px 3px;background:rgba(255,255,255,0.05);text-align:center;cursor:pointer;transition:transform .1s,box-shadow .15s,border-color .15s}
@@ -263,6 +264,7 @@ let bestRun={rooms:0,level:1};
 let savedSID=null;
 let settings={music:false,sfx:true,reducedMotion:false};
 let showSettings=false;
+let showMenu=false;
 let showHelp=false;
 let showHint=false;
 let roomTrans=0,roomTransDir=1;
@@ -1486,6 +1488,7 @@ function chargeChipHTML(state){
   hud+=chargeChipHTML(state).replace('class="chip"','class="chip fold"');
   hud+=`<span class="chip fold clickable" style="background:rgba(124,77,255,0.4)" onclick="toggleMusic()">${musicOn?'🔊':'🔇'}</span>`;
   hud+=`<span class="chip fold" style="background:rgba(255,215,0,0.25);color:#ffd54f">🏆 R${bestRun.rooms}</span>`;
+  hud+=`<span class="chip hud-toggle" style="background:rgba(255,255,255,0.18)" onclick="showMenu=true;render()">☰</span>`;
   hud+=`</div>`;
   hud+=`<div class="barwrap"><div class="barlabel" style="color:#69f0ae">YOU</div><div class="bar"><div class="barfill ${hpCls}" style="width:${Math.max(0,hpPct)}%"></div></div><span class="barnum">HP ${state.hp}/${state.max_hp}</span></div>`;
   hud+=`<div class="barwrap"><div class="barlabel" style="color:#b388ff">XP</div><div class="bar xp"><div class="barfillx" style="width:${xpPct}%"></div></div><span class="barnum">${state.xp}/${state.xp_to_next}</span></div>`;
@@ -1572,6 +1575,16 @@ panel+=`<button class="btn btn-primary clickable" onclick="doAnswer()">Submit</b
     ui.innerHTML=`<div class="panel clickable">${hp}</div>`;
     return;
   }
+  if(showMenu){
+    let mp=`<div style="text-align:center;font-size:1.05em;font-weight:bold;color:#4dd0e1;margin-bottom:8px">☰ Menu</div>`;
+    mp+=`<button class="btn btn-primary clickable" style="width:100%;margin:4px 0" onclick="showMenu=false;render()">▶️ Resume</button>`;
+    mp+=`<button class="btn btn-warning clickable" style="width:100%;margin:4px 0" onclick="confirmRestart()">🔄 Restart</button>`;
+    mp+=`<button class="btn btn-info clickable" style="width:100%;margin:4px 0" onclick="showMenu=false;showSettings=true;render()">⚙️ Settings</button>`;
+    mp+=`<button class="btn btn-info clickable" style="width:100%;margin:4px 0" onclick="showMenu=false;showHelp=true;render()">❓ How to Play</button>`;
+    mp+=`<button class="btn btn-secondary clickable" style="width:100%;margin:4px 0" onclick="mainMenu()">🏠 Main Menu</button>`;
+    ui.innerHTML=`<div class="panel clickable">${mp}</div>`;
+    return;
+  }
   ui.innerHTML=hud+`<div class="panel clickable">${panel}</div>`;
   const ans=document.getElementById('answer');
   if(ans)setTimeout(()=>ans.focus(),100);
@@ -1588,6 +1601,8 @@ function clearSave(){try{localStorage.removeItem('cq_sid');}catch(e){}savedSID=n
 function hasLocalSave(){try{return !!localStorage.getItem('cq_offline');}catch(e){return false;}}
 function localSaveRoom(){try{return (JSON.parse(localStorage.getItem('cq_offline')||'{}').rooms_cleared||0)+1;}catch(e){return 0;}}
 function continueGame(){try{const st=JSON.parse(localStorage.getItem('cq_offline'));if(!st)return;OFFLINE_G=st;state=st;gameMode=st.mode||'explore';if(!gameMode||gameMode==='title'){gameMode='explore';}render();}catch(e){console.error(e);}}
+function mainMenu(){clearSave();SID=null;state=null;showMenu=false;gameMode='title';render();}
+function confirmRestart(){if(state&&state.name){const r=confirm('Restart from the top? Your current run will be lost.');if(!r)return;}clearSave();SID=null;state=null;showMenu=false;gameMode='title';render();}
 function confirmNewGame(){
   const nm=(document.getElementById('name')&&document.getElementById('name').value)||'Hero';
   if(hasLocalSave()){
